@@ -27,6 +27,13 @@ export function createApp(): Express {
   app.use(cors());
   app.use(express.json());
 
+  app.get('/healthz', (_req: Request, res: Response) => {
+    res.status(200).json({
+      status: 'ok',
+      service: 'mksab-backend',
+    });
+  });
+
   const reportsStorageRootPath = resolveReportsStorageRootPath();
   const reportsFilesBaseUrl = resolveReportsFilesBaseUrl();
   const reportsFilesMountPath = /^https?:\/\//i.test(reportsFilesBaseUrl)
