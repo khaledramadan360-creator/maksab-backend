@@ -72,8 +72,10 @@ export class WebsiteSearchService {
     const fallbackPool = new Map<string, CandidateResult>();
     const providerWarnings: string[] = [];
     const resultsPerPage = 10;
-    const maxPagesPerQuery = this.getMaxPagesPerQuery(request.requestedResultsCount);
+    const maxPagesPerQuery = this.stopPolicy.getMaxPagesPerQuery(request.requestedResultsCount);
     const filterStopTarget = this.stopPolicy.getFilterStopTarget(request.requestedResultsCount);
+    const getAcceptedPoolCount = () =>
+      this.stopPolicy.getAcceptedCount(strictPool.size, relaxedPool.size, fallbackPool.size);
     let rawResultCount = 0;
     let acceptedDuringFiltering = 0;
     let queriedPageCount = 0;
@@ -83,8 +85,8 @@ export class WebsiteSearchService {
     outer:
     for (const query of queries) {
       for (let page = 1; page <= maxPagesPerQuery; page++) {
-        if (this.stopPolicy.shouldStopFiltering(strictPool.size, request.requestedResultsCount)) {
-          stoppedAtFilterThreshold = this.stopPolicy.shouldStopFiltering(strictPool.size, request.requestedResultsCount);
+        if (this.stopPolicy.shouldStopFiltering(getAcceptedPoolCount(), request.requestedResultsCount)) {
+          stoppedAtFilterThreshold = true;
           break outer;
         }
 
@@ -141,12 +143,12 @@ export class WebsiteSearchService {
           blockIfExistsIn: [strictPool, relaxedPool],
         });
 
-        if (this.stopPolicy.shouldStopFiltering(strictPool.size, request.requestedResultsCount)) {
+        if (this.stopPolicy.shouldStopFiltering(getAcceptedPoolCount(), request.requestedResultsCount)) {
           stoppedAtFilterThreshold = true;
           break outer;
         }
 
-        if (uniqueBatch.length < resultsPerPage) {
+        if (rawResults.length < resultsPerPage) {
           break;
         }
       }
@@ -286,12 +288,6 @@ export class WebsiteSearchService {
     }
 
     return '';
-  }
-
-  private getMaxPagesPerQuery(requestedCount: number): number {
-    if (requestedCount <= 10) return 3;
-    if (requestedCount <= 25) return 4;
-    return 5;
   }
 
   private buildWarning(
