@@ -1,20 +1,105 @@
 require('dotenv').config();
 
+const DEFAULT_DB_PORT = 3306;
+
+const parseBoolean = (value, fallback) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+};
+
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const isSslEnabled = value => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return ['1', 'true', 'yes', 'on', 'required', 'require', 'verify_ca', 'verify_identity'].includes(normalized);
+};
+
+const resolveDatabaseConfig = () => {
+  const rawDatabaseUrl = String(process.env.DATABASE_URL || process.env.DB_URL || '').trim();
+
+  let database = process.env.DB_NAME || 'mksab_db';
+  let username = process.env.DB_USER || 'root';
+  let password = process.env.DB_PASSWORD || '';
+  let host = process.env.DB_HOST || 'localhost';
+  let port = parsePositiveInt(process.env.DB_PORT, DEFAULT_DB_PORT);
+  let sslMode = String(process.env.DB_SSL_MODE || process.env.DB_SSL || '').trim();
+
+  if (rawDatabaseUrl) {
+    const parsed = new URL(rawDatabaseUrl);
+    if (parsed.pathname && parsed.pathname !== '/') {
+      database = decodeURIComponent(parsed.pathname.replace(/^\/+/, '')) || database;
+    }
+
+    username = decodeURIComponent(parsed.username || username);
+    password = decodeURIComponent(parsed.password || password);
+    host = parsed.hostname || host;
+    port = parsePositiveInt(parsed.port, port);
+    sslMode =
+      String(
+        parsed.searchParams.get('ssl-mode') ||
+          parsed.searchParams.get('sslmode') ||
+          parsed.searchParams.get('ssl') ||
+          sslMode
+      ).trim() || sslMode;
+  }
+
+  const dialectOptions = {
+    charset: 'utf8mb4',
+  };
+
+  if (isSslEnabled(sslMode)) {
+    dialectOptions.ssl = {
+      rejectUnauthorized: parseBoolean(process.env.DB_SSL_REJECT_UNAUTHORIZED, false),
+      ...(host ? { servername: host } : {}),
+    };
+  }
+
+  return {
+    username,
+    password,
+    database,
+    host,
+    port,
+    dialectOptions,
+  };
+};
+
+const resolved = resolveDatabaseConfig();
+
 module.exports = {
   development: {
-    username: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'mksab_db',
-    host: process.env.DB_HOST || 'localhost',
+    username: resolved.username,
+    password: resolved.password,
+    database: resolved.database,
+    host: resolved.host,
+    port: resolved.port,
     dialect: 'mysql',
     timezone: '+00:00',
+    dialectOptions: resolved.dialectOptions,
   },
   production: {
-    username: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    host: process.env.DB_HOST,
+    username: resolved.username,
+    password: resolved.password,
+    database: resolved.database,
+    host: resolved.host,
+    port: resolved.port,
     dialect: 'mysql',
     timezone: '+00:00',
+    dialectOptions: resolved.dialectOptions,
   },
 };
