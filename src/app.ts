@@ -22,9 +22,15 @@ import {
  */
 export function createApp(): Express {
   const app = express();
+  const openCorsOptions = {
+    origin: '*',
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  };
 
   // Basic Middlewares
-  app.use(cors());
+  app.use(cors(openCorsOptions));
+  app.options('*', cors(openCorsOptions));
   app.use(express.json());
 
   app.get('/healthz', (_req: Request, res: Response) => {
