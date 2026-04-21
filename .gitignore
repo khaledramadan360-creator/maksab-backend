@@ -1,0 +1,14 @@
+node_modules/
+dist/
+storage/
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+tmp-*.pdf
+tmp-*.js
+.DS_Store
+Thumbs.db
+test-bright.js
+tmp-serp-provider-check.js
