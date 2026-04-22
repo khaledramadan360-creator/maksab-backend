@@ -49,10 +49,15 @@ export function initAuthModule(): { router: Router; errorMiddleware: any; facade
 
   // 3. Technical Services
   const jwtSecret            = process.env.JWT_ACCESS_SECRET || 'dev_secret_access';
-  const jwtService           = new JsonWebTokenService(jwtSecret);
+  const jwtAccessExpiresIn   = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
+  const jwtRefreshExpiresIn  = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
+  const jwtService           = new JsonWebTokenService(jwtSecret, jwtAccessExpiresIn);
   const passwordHasher       = new BcryptPasswordHasher(10);
   const tokenGen             = new CryptoTokenGenerator();
-  const refreshTokenService  = new StandardRefreshTokenService(timeProvider);
+  const refreshTokenService  = new StandardRefreshTokenService(
+    timeProvider,
+    resolveRefreshExpiryDays(jwtRefreshExpiresIn)
+  );
   const mailAdapter          = new BrevoMailAdapter();
 
   // 4. Write Use Cases
@@ -88,6 +93,32 @@ export function initAuthModule(): { router: Router; errorMiddleware: any; facade
   const facade = new AuthFacade(userRepo, sessionRepo);
 
   return { router, errorMiddleware: errorMappingMiddleware, facade };
+}
+
+function resolveRefreshExpiryDays(rawValue: string): number {
+  const normalizedValue = rawValue.trim().toLowerCase();
+
+  const daysMatch = normalizedValue.match(/^(\d+)d$/);
+  if (daysMatch) {
+    return Math.max(1, Number(daysMatch[1]));
+  }
+
+  const hoursMatch = normalizedValue.match(/^(\d+)h$/);
+  if (hoursMatch) {
+    return Math.max(1, Math.ceil(Number(hoursMatch[1]) / 24));
+  }
+
+  const minutesMatch = normalizedValue.match(/^(\d+)m$/);
+  if (minutesMatch) {
+    return Math.max(1, Math.ceil(Number(minutesMatch[1]) / (24 * 60)));
+  }
+
+  const numericValue = Number(normalizedValue);
+  if (Number.isFinite(numericValue) && numericValue > 0) {
+    return Math.ceil(numericValue);
+  }
+
+  return 7;
 }
 
 // Public Facade re-exports
