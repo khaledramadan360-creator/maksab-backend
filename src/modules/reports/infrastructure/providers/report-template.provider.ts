@@ -821,9 +821,9 @@ ${REPORTS_TEMPLATE_VARIANT === 'cover-only' ? '' : LEGACY_REPORT_ADDITIONAL_PAGE
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Cairo:wght@400;600;700;800;900&family=Manrope:wght@500;700;800&display=swap');
 
 :root {
-  --report-font-family: "Tajawal", "ReportArabicFallback", "Noto Naskh Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
-  --report-font-family-display-ar: "Cairo", "Tajawal", "ReportArabicFallback", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
-  --report-font-family-display-mix: "Manrope", "Cairo", "Tajawal", "ReportArabicFallback", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --report-font-family: "ReportArabicFallback", "Noto Naskh Arabic", "Noto Sans Arabic", "Tajawal", "Segoe UI", Tahoma, Arial, sans-serif;
+  --report-font-family-display-ar: "ReportArabicFallback", "Noto Naskh Arabic", "Cairo", "Tajawal", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --report-font-family-display-mix: "ReportArabicFallback", "Noto Naskh Arabic", "Manrope", "Cairo", "Tajawal", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }

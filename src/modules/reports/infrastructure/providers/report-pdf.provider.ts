@@ -61,29 +61,22 @@ export class ReportPdfProvider implements ReportPdfGeneratorContract {
   }
 
   private async renderWithFallback(html: string): Promise<Buffer> {
-    if (this.wsEndpoint) {
-      let remoteError: unknown = null;
-      try {
-        return await this.renderWithRemoteChromium(html);
-      } catch (error) {
-        remoteError = error;
-      }
-
-      try {
-        return await this.renderWithLocalChromium(html);
-      } catch (localError) {
-        throw new Error(
-          `report_pdf_remote_and_local_failed remote="${this.getErrorMessage(
-            remoteError
-          )}" local="${this.getErrorMessage(localError)}"`
-        );
-      }
-    }
-
     try {
       return await this.renderWithLocalChromium(html);
     } catch (localError) {
-      throw new Error(`report_pdf_local_browser_failed: ${this.getErrorMessage(localError)}`);
+      if (!this.wsEndpoint) {
+        throw new Error(`report_pdf_local_browser_failed: ${this.getErrorMessage(localError)}`);
+      }
+
+      try {
+        return await this.renderWithRemoteChromium(html);
+      } catch (remoteError) {
+        throw new Error(
+          `report_pdf_remote_and_local_failed local="${this.getErrorMessage(
+            localError
+          )}" remote="${this.getErrorMessage(remoteError)}"`
+        );
+      }
     }
   }
 

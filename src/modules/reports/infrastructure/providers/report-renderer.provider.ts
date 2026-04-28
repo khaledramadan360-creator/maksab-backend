@@ -1042,12 +1042,26 @@ export class ReportRendererProvider implements ReportRendererContract {
 
   private resolveArabicFontPath(): string | null {
     const envPath = String(process.env.REPORTS_PDF_ARABIC_FONT_PATH || '').trim();
-    if (!envPath) {
-      return null;
-    }
+    const candidates = [
+      envPath,
+      '/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf',
+      '/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf',
+      '/usr/share/fonts/opentype/noto/NotoNaskhArabic-Regular.ttf',
+      '/usr/share/fonts/opentype/noto/NotoSansArabic-Regular.ttf',
+      '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+      'C:\\Windows\\Fonts\\segoeui.ttf',
+      'C:\\Windows\\Fonts\\arial.ttf',
+      '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+      '/System/Library/Fonts/Supplemental/Geeza Pro.ttf',
+    ];
 
-    if (existsSync(envPath)) {
-      return envPath;
+    for (const candidate of candidates) {
+      if (!candidate) {
+        continue;
+      }
+      if (existsSync(candidate)) {
+        return candidate;
+      }
     }
 
     return null;
