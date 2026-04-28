@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { ReportPdfGeneratorContract, ReportPdfFilePayload, RenderPdfInput } from '../../domain/repositories';
 
 export class ReportPdfProvider implements ReportPdfGeneratorContract {
+  private hasLoggedRuntimeConfig = false;
   private readonly timeoutMs: number;
   private readonly wsEndpoint: string;
   private readonly viewportWidth: number;
@@ -43,6 +44,8 @@ export class ReportPdfProvider implements ReportPdfGeneratorContract {
   }
 
   async generatePdf(input: RenderPdfInput): Promise<ReportPdfFilePayload> {
+    this.logRuntimeConfigOnce();
+
     const html = String(input.html || '').trim();
     if (!html) {
       throw new Error('report_pdf_html_empty');
@@ -58,6 +61,29 @@ export class ReportPdfProvider implements ReportPdfGeneratorContract {
       contentType: 'application/pdf',
       data: pdfBuffer,
     };
+  }
+
+  private logRuntimeConfigOnce(): void {
+    if (this.hasLoggedRuntimeConfig) {
+      return;
+    }
+
+    this.hasLoggedRuntimeConfig = true;
+    console.log('[REPORT_PDF] Runtime config snapshot', {
+      timeoutMs: this.timeoutMs,
+      wsEndpointConfigured: this.wsEndpoint !== '',
+      localChromePath: this.localChromePath || '(auto)',
+      setContentWaitUntil: this.setContentWaitUntil,
+      stripWebFontImports: this.stripWebFontImports,
+      pageFormat: this.pageFormat,
+      viewport: {
+        width: this.viewportWidth,
+        height: this.viewportHeight,
+      },
+      assetWaitTimeoutMs: this.assetWaitTimeoutMs,
+      settleDelayMs: this.settleDelayMs,
+      playwrightBrowsersPath: process.env.PLAYWRIGHT_BROWSERS_PATH || '(unset)',
+    });
   }
 
   private async renderWithFallback(html: string): Promise<Buffer> {

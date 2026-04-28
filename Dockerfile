@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY scripts/install-playwright.js ./scripts/install-playwright.js
+ENV SKIP_PLAYWRIGHT_POSTINSTALL=1
 RUN npm ci --ignore-scripts
 
 COPY . .

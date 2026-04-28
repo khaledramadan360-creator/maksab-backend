@@ -10,6 +10,7 @@ export class BrevoMailAdapter implements AuthMailAdapter {
   private _transporterVerified = false;
   private _transporterVerificationAttempted = false;
   private _brevoConfigLogged = false;
+  private _transportChoiceLogged = false;
 
   private get smtpHost() { return process.env.SMTP_HOST ?? 'smtp-relay.brevo.com'; }
   private get smtpPort() { return this.resolvePositiveInt(process.env.SMTP_PORT, 587); }
@@ -132,6 +133,7 @@ export class BrevoMailAdapter implements AuthMailAdapter {
     kind: 'invite' | 'password_reset';
   }): Promise<void> {
     const mode = this.resolveEffectiveTransportMode();
+    this.logEffectiveTransport(mode);
 
     try {
       if (mode === 'brevo_api') {
@@ -160,6 +162,23 @@ export class BrevoMailAdapter implements AuthMailAdapter {
     }
 
     return this.brevoApiKey ? 'brevo_api' : 'smtp';
+  }
+
+  private logEffectiveTransport(mode: 'brevo_api' | 'smtp'): void {
+    if (this._transportChoiceLogged) {
+      return;
+    }
+
+    this._transportChoiceLogged = true;
+    console.log('[MAILER] Effective auth mail transport', {
+      configuredMode: this.mailTransportMode,
+      effectiveMode: mode,
+      brevoApiKeyConfigured: this.brevoApiKey !== '',
+      smtpUserConfigured: this.smtpUser !== '',
+      smtpPassConfigured: this.smtpPass !== '',
+      smtpHost: this.smtpHost,
+      smtpPort: this.smtpPort,
+    });
   }
 
   private async sendViaBrevoApi(input: {
