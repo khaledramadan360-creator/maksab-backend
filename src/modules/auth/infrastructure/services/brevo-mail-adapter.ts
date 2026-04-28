@@ -2,21 +2,75 @@ import * as nodemailer from 'nodemailer';
 import { AuthMailAdapter } from '../../application/services/mail-adapter.interface';
 
 /**
- * Production mail adapter using Brevo SMTP relay via Nodemailer.
- * Reads credentials from environment variables at first use (after dotenv loads).
+ * Production mail adapter for auth emails.
+ * Uses Brevo Transactional API by default (or SMTP fallback based on environment settings).
  */
 export class BrevoMailAdapter implements AuthMailAdapter {
   private _transporter: nodemailer.Transporter | null = null;
+  private _transporterVerified = false;
+  private _transporterVerificationAttempted = false;
+  private _brevoConfigLogged = false;
+
+  private get smtpHost() { return process.env.SMTP_HOST ?? 'smtp-relay.brevo.com'; }
+  private get smtpPort() { return this.resolvePositiveInt(process.env.SMTP_PORT, 587); }
+  private get smtpUser() { return String(process.env.SMTP_USER || '').trim(); }
+  private get smtpPass() { return String(process.env.SMTP_PASS || '').trim(); }
+  private get smtpSecure() { return this.resolveBooleanFlag(process.env.SMTP_SECURE, false); }
+  private get smtpConnectionTimeoutMs() { return this.resolvePositiveInt(process.env.SMTP_CONNECTION_TIMEOUT_MS, 15000); }
+  private get smtpGreetingTimeoutMs() { return this.resolvePositiveInt(process.env.SMTP_GREETING_TIMEOUT_MS, 15000); }
+  private get smtpSocketTimeoutMs() { return this.resolvePositiveInt(process.env.SMTP_SOCKET_TIMEOUT_MS, 20000); }
+  private get smtpDebugEnabled() { return this.resolveBooleanFlag(process.env.SMTP_DEBUG, false); }
+  private get smtpVerifyBeforeSend() { return this.resolveBooleanFlag(process.env.SMTP_VERIFY_BEFORE_SEND, true); }
+  private get brevoApiKey() {
+    return (
+      process.env.BREVO_AUTH_API_KEY?.trim() ||
+      process.env.BREVO_MARKETING_API_KEY?.trim() ||
+      process.env.BREVO_API_KEY?.trim() ||
+      ''
+    );
+  }
+  private get brevoBaseUrl() {
+    return (
+      process.env.BREVO_AUTH_BASE_URL?.trim() ||
+      process.env.BREVO_MARKETING_BASE_URL?.trim() ||
+      process.env.BREVO_BASE_URL?.trim() ||
+      'https://api.brevo.com/v3'
+    ).replace(/\/+$/g, '');
+  }
+  private get brevoTimeoutMs() {
+    return this.resolvePositiveInt(
+      process.env.BREVO_AUTH_TIMEOUT_MS,
+      this.resolvePositiveInt(process.env.BREVO_MARKETING_TIMEOUT_MS, 30000)
+    );
+  }
+  private get mailTransportMode(): 'auto' | 'brevo_api' | 'smtp' {
+    const normalized = String(process.env.AUTH_MAIL_TRANSPORT || '')
+      .trim()
+      .toLowerCase();
+    if (normalized === 'brevo_api') {
+      return 'brevo_api';
+    }
+    if (normalized === 'smtp') {
+      return 'smtp';
+    }
+    return 'auto';
+  }
 
   private get transporter(): nodemailer.Transporter {
     if (!this._transporter) {
+      this.logTransportConfig('transporter-create');
       this._transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST ?? 'smtp-relay.brevo.com',
-        port: Number(process.env.SMTP_PORT ?? 587),
-        secure: false, // STARTTLS on port 587
+        host: this.smtpHost,
+        port: this.smtpPort,
+        secure: this.smtpSecure,
+        connectionTimeout: this.smtpConnectionTimeoutMs,
+        greetingTimeout: this.smtpGreetingTimeoutMs,
+        socketTimeout: this.smtpSocketTimeoutMs,
+        logger: this.smtpDebugEnabled,
+        debug: this.smtpDebugEnabled,
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          user: this.smtpUser,
+          pass: this.smtpPass,
         },
       });
     }
@@ -35,40 +89,202 @@ export class BrevoMailAdapter implements AuthMailAdapter {
   async sendInviteEmail(toEmail: string, token: string, role: string): Promise<void> {
     const acceptUrl = this.buildFrontendActionUrl(this.inviteAcceptPath, token);
     const roleName = this.translateRole(role);
+    const maskedTo = this.maskEmail(toEmail);
+    console.log('[MAILER] Preparing invite email', {
+      to: maskedTo,
+      role,
+      from: this.fromEmail,
+      acceptUrlHost: this.safeUrlHost(acceptUrl),
+    });
 
-    try {
-      await this.transporter.sendMail({
-        from: this.fromHeader,
-        to: toEmail,
-        subject: 'دعوة للانضمام إلى منصة مكسب',
-        html: this.buildInviteHtml(acceptUrl, roleName),
-      });
-      console.log(`[MAILER] ✅ Invite email sent to ${toEmail}`);
-    } catch (err: any) {
-      console.error(`[MAILER] ❌ Failed to send invite email to ${toEmail}:`, err?.message ?? err);
-      throw new Error('MAIL_SEND_FAILED');
-    }
+    await this.sendEmail({
+      toEmail,
+      maskedToEmail: maskedTo,
+      subject: 'دعوة للانضمام إلى منصة مكسب',
+      html: this.buildInviteHtml(acceptUrl, roleName),
+      kind: 'invite',
+    });
   }
 
-  // ─── Password Reset Email ──────────────────────────────────────────────────
   async sendPasswordResetEmail(toEmail: string, token: string): Promise<void> {
     const resetUrl = this.buildFrontendActionUrl(this.resetPasswordPath, token);
+    const maskedTo = this.maskEmail(toEmail);
+    console.log('[MAILER] Preparing reset email', {
+      to: maskedTo,
+      from: this.fromEmail,
+      resetUrlHost: this.safeUrlHost(resetUrl),
+    });
+
+    await this.sendEmail({
+      toEmail,
+      maskedToEmail: maskedTo,
+      subject: 'إعادة تعيين كلمة المرور — مكسب',
+      html: this.buildResetHtml(resetUrl),
+      kind: 'password_reset',
+    });
+  }
+
+  private async sendEmail(input: {
+    toEmail: string;
+    maskedToEmail: string;
+    subject: string;
+    html: string;
+    kind: 'invite' | 'password_reset';
+  }): Promise<void> {
+    const mode = this.resolveEffectiveTransportMode();
 
     try {
-      await this.transporter.sendMail({
-        from: this.fromHeader,
-        to: toEmail,
-        subject: 'إعادة تعيين كلمة المرور — مكسب',
-        html: this.buildResetHtml(resetUrl),
-      });
-      console.log(`[MAILER] ✅ Password reset email sent to ${toEmail}`);
+      if (mode === 'brevo_api') {
+        await this.sendViaBrevoApi(input);
+      } else {
+        await this.sendViaSmtp(input);
+      }
     } catch (err: any) {
-      console.error(`[MAILER] ❌ Failed to send reset email to ${toEmail}:`, err?.message ?? err);
+      console.error('[MAILER] Send failed', {
+        mode,
+        kind: input.kind,
+        to: input.maskedToEmail,
+        error: this.serializeMailError(err),
+      });
       throw new Error('MAIL_SEND_FAILED');
     }
   }
 
-  // ─── HTML Templates ────────────────────────────────────────────────────────
+  private resolveEffectiveTransportMode(): 'brevo_api' | 'smtp' {
+    if (this.mailTransportMode === 'brevo_api') {
+      return 'brevo_api';
+    }
+
+    if (this.mailTransportMode === 'smtp') {
+      return 'smtp';
+    }
+
+    return this.brevoApiKey ? 'brevo_api' : 'smtp';
+  }
+
+  private async sendViaBrevoApi(input: {
+    toEmail: string;
+    maskedToEmail: string;
+    subject: string;
+    html: string;
+    kind: 'invite' | 'password_reset';
+  }): Promise<void> {
+    if (!this.brevoApiKey) {
+      throw new Error('BREVO_API_KEY_MISSING');
+    }
+    this.logBrevoApiConfig();
+
+    const payload = {
+      sender: {
+        name: this.fromName,
+        email: this.fromEmail,
+      },
+      to: [
+        {
+          email: input.toEmail,
+        },
+      ],
+      subject: input.subject,
+      htmlContent: input.html,
+      tags: ['auth', input.kind],
+      headers: {
+        'X-Mailin-custom': 'source:auth;kind:' + input.kind,
+      },
+    };
+
+    const result = await this.requestBrevoApi('/smtp/email', payload);
+    console.log('[MAILER] Email sent via Brevo API', {
+      kind: input.kind,
+      to: input.maskedToEmail,
+      messageId: result?.messageId,
+    });
+  }
+
+  private async sendViaSmtp(input: {
+    toEmail: string;
+    maskedToEmail: string;
+    subject: string;
+    html: string;
+    kind: 'invite' | 'password_reset';
+  }): Promise<void> {
+    await this.ensureTransportVerified();
+    const info = await this.transporter.sendMail({
+      from: this.fromHeader,
+      to: input.toEmail,
+      subject: input.subject,
+      html: input.html,
+    });
+
+    console.log('[MAILER] Email sent via SMTP', {
+      kind: input.kind,
+      to: input.maskedToEmail,
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      response: info.response,
+    });
+  }
+
+  private async requestBrevoApi(pathname: string, body: unknown): Promise<Record<string, unknown>> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.brevoTimeoutMs);
+
+    try {
+      const response = await fetch(this.brevoBaseUrl + pathname, {
+        method: 'POST',
+        headers: {
+          'api-key': this.brevoApiKey,
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      const payload = await this.readResponsePayload(response);
+      if (!response.ok) {
+        const message = this.extractBrevoErrorMessage(payload) || ('HTTP_' + response.status);
+        throw new Error('BREVO_API_REQUEST_FAILED:' + response.status + ':' + message);
+      }
+
+      return payload;
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        throw new Error('BREVO_API_TIMEOUT');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private async readResponsePayload(response: Response): Promise<Record<string, unknown>> {
+    if (response.status === 204) {
+      return {};
+    }
+
+    const text = await response.text();
+    if (!text) {
+      return {};
+    }
+
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object') {
+        return parsed as Record<string, unknown>;
+      }
+      return { value: parsed };
+    } catch {
+      return { message: text };
+    }
+  }
+
+  private extractBrevoErrorMessage(payload: Record<string, unknown>): string {
+    const message = payload?.message ?? payload?.error ?? payload?.code;
+    return message ? String(message) : '';
+  }
+
+
   private buildInviteHtml(acceptUrl: string, role: string): string {
     return `
 <!DOCTYPE html>
@@ -183,4 +399,129 @@ export class BrevoMailAdapter implements AuthMailAdapter {
     };
     return map[role.toLowerCase()] ?? role;
   }
+
+  private async ensureTransportVerified(): Promise<void> {
+    if (!this.smtpVerifyBeforeSend) {
+      return;
+    }
+
+    if (this._transporterVerified || this._transporterVerificationAttempted) {
+      return;
+    }
+
+    this._transporterVerificationAttempted = true;
+    console.log('[MAILER] Verifying SMTP transport before send');
+
+    try {
+      await this.transporter.verify();
+      this._transporterVerified = true;
+      console.log('[MAILER] SMTP transport verified successfully');
+    } catch (err: any) {
+      console.error('[MAILER] SMTP transport verification failed', {
+        error: this.serializeMailError(err),
+      });
+      throw err;
+    }
+  }
+
+  private logTransportConfig(context: string): void {
+    console.log('[MAILER] SMTP config snapshot (' + context + ')', {
+      host: this.smtpHost,
+      port: this.smtpPort,
+      secure: this.smtpSecure,
+      userConfigured: this.smtpUser !== '',
+      passConfigured: this.smtpPass !== '',
+      fromEmail: this.fromEmail,
+      frontendUrl: this.frontendUrl,
+      inviteAcceptPath: this.inviteAcceptPath,
+      resetPasswordPath: this.resetPasswordPath,
+      verifyBeforeSend: this.smtpVerifyBeforeSend,
+      debugEnabled: this.smtpDebugEnabled,
+      connectionTimeoutMs: this.smtpConnectionTimeoutMs,
+      greetingTimeoutMs: this.smtpGreetingTimeoutMs,
+      socketTimeoutMs: this.smtpSocketTimeoutMs,
+    });
+  }
+
+  private logBrevoApiConfig(): void {
+    if (this._brevoConfigLogged) {
+      return;
+    }
+
+    this._brevoConfigLogged = true;
+    console.log('[MAILER] Brevo API config snapshot', {
+      transportMode: this.mailTransportMode,
+      apiKeyConfigured: this.brevoApiKey !== '',
+      baseUrl: this.brevoBaseUrl,
+      timeoutMs: this.brevoTimeoutMs,
+      fromEmail: this.fromEmail,
+      fromName: this.fromName,
+    });
+  }
+
+  private serializeMailError(err: any): Record<string, unknown> {
+    return {
+      name: err?.name,
+      message: err?.message,
+      code: err?.code,
+      command: err?.command,
+      responseCode: err?.responseCode,
+      response: err?.response,
+      errno: err?.errno,
+      syscall: err?.syscall,
+      address: err?.address,
+      port: err?.port,
+      stack: err?.stack,
+    };
+  }
+
+  private maskEmail(email: string): string {
+    const value = String(email || '').trim();
+    const atIndex = value.indexOf('@');
+    if (atIndex <= 1) {
+      return '***';
+    }
+
+    const local = value.slice(0, atIndex);
+    const domain = value.slice(atIndex + 1);
+    const localMasked = local[0] + '***' + local.slice(-1);
+    return localMasked + '@' + domain;
+  }
+
+  private safeUrlHost(rawUrl: string): string {
+    try {
+      return new URL(rawUrl).host;
+    } catch {
+      return 'invalid_url';
+    }
+  }
+
+  private resolvePositiveInt(rawValue: string | undefined, fallback: number): number {
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return fallback;
+    }
+
+    return Math.floor(parsed);
+  }
+
+  private resolveBooleanFlag(rawValue: string | undefined, fallback: boolean): boolean {
+    const normalized = String(rawValue || '')
+      .trim()
+      .toLowerCase();
+    if (!normalized) {
+      return fallback;
+    }
+
+    if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') {
+      return true;
+    }
+
+    if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') {
+      return false;
+    }
+
+    return fallback;
+  }
+
 }
