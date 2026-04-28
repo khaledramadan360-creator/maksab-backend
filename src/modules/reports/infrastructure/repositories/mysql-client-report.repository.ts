@@ -93,6 +93,10 @@ export class MySQLClientReportRepository implements ClientReportRepository {
     return ClientReportMapper.toDomain(row);
   }
 
+  async findCurrentByClientId(clientId: string): Promise<ClientReport | null> {
+    return this.findByClientId(clientId);
+  }
+
   async findById(reportId: string): Promise<ClientReport | null> {
     const row = await ClientReportModel.findByPk(reportId);
     if (!row) {

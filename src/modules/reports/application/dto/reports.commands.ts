@@ -1,4 +1,5 @@
 import { ClientReport, ReportRenderPayload, TeamReportOverviewItem } from '../../domain/entities';
+import { DeliveryProvider, DeliveryStatus } from '../../domain/enums';
 import { PaginatedResult, ReportsListFilters } from '../../domain/repositories';
 
 export interface ActorContext {
@@ -26,6 +27,31 @@ export interface ListReportsQuery extends ActorContext {
 
 export interface DeleteClientReportCommand extends ActorContext {
   reportId: string;
+}
+
+export type RecipientSource = 'whatsapp' | 'mobile' | 'custom';
+
+export interface SendReportToWhatChimpCommand extends ActorContext {
+  clientId: string;
+  recipientPhone: string;
+  recipientSource?: RecipientSource | null;
+  recipientName?: string | null;
+  messageText?: string | null;
+}
+
+export interface SendReportToWhatChimpResult {
+  success: boolean;
+  status: DeliveryStatus.Accepted | DeliveryStatus.Failed;
+  attemptId: string;
+  reportId: string;
+  clientId: string;
+  recipientPhone: string;
+  recipientSource: RecipientSource | null;
+  provider: DeliveryProvider.WhatChimp;
+  providerMessageId: string | null;
+  providerStatusCode: string | null;
+  failureReason: string | null;
+  createdAt: Date;
 }
 
 export interface ReportPreviewResult {

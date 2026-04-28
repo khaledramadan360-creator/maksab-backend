@@ -46,6 +46,7 @@ export class BrevoMailAdapter implements AuthMailAdapter {
       console.log(`[MAILER] ✅ Invite email sent to ${toEmail}`);
     } catch (err: any) {
       console.error(`[MAILER] ❌ Failed to send invite email to ${toEmail}:`, err?.message ?? err);
+      throw new Error('MAIL_SEND_FAILED');
     }
   }
 
@@ -63,6 +64,7 @@ export class BrevoMailAdapter implements AuthMailAdapter {
       console.log(`[MAILER] ✅ Password reset email sent to ${toEmail}`);
     } catch (err: any) {
       console.error(`[MAILER] ❌ Failed to send reset email to ${toEmail}:`, err?.message ?? err);
+      throw new Error('MAIL_SEND_FAILED');
     }
   }
 

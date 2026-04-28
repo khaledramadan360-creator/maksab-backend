@@ -1,9 +1,10 @@
-import { ReportPreviewResult } from '../dto/reports.commands';
+import { ReportPreviewResult, SendReportToWhatChimpResult } from '../dto/reports.commands';
 import {
   ClientReportDto,
   ReportPreviewDto,
   ReportsListItemDto,
   ReportsListResponseDto,
+  SendReportToWhatChimpResponseDto,
 } from '../../public/reports.types';
 import { TeamReportOverviewItem } from '../../domain/entities';
 import { PaginatedResult } from '../../domain/repositories';
@@ -50,6 +51,25 @@ export class ReportMapperService {
       total: result.total,
       page: result.page,
       pageSize: result.pageSize,
+    };
+  }
+
+  toSendReportToWhatChimpResponseDto(
+    result: SendReportToWhatChimpResult
+  ): SendReportToWhatChimpResponseDto {
+    return {
+      success: result.success,
+      status: result.status,
+      attemptId: result.attemptId,
+      reportId: result.reportId,
+      clientId: result.clientId,
+      recipientPhone: result.recipientPhone,
+      recipientSource: result.recipientSource,
+      provider: result.provider,
+      providerMessageId: result.providerMessageId,
+      providerStatusCode: result.providerStatusCode,
+      failureReason: result.failureReason,
+      createdAt: result.createdAt.toISOString(),
     };
   }
 

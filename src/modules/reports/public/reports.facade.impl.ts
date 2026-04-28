@@ -7,6 +7,8 @@ import {
   ListReportsQueryDto,
   ReportPreviewDto,
   ReportsListResponseDto,
+  SendReportToWhatChimpRequestDto,
+  SendReportToWhatChimpResponseDto,
 } from './reports.types';
 import { ReportStatus } from '../domain/enums';
 import { ValidationError } from '../application/errors';
@@ -16,6 +18,7 @@ import { GetClientReportUseCase } from '../application/use-cases/get-client-repo
 import { GetReportByIdUseCase } from '../application/use-cases/get-report-by-id.use-case';
 import { ListReportsUseCase } from '../application/use-cases/list-reports.use-case';
 import { DeleteClientReportUseCase } from '../application/use-cases/delete-client-report.use-case';
+import { SendReportToWhatChimpUseCase } from '../application/use-cases/send-report-to-whatchimp.use-case';
 
 export class ReportsFacadeImpl implements ReportsFacade {
   constructor(
@@ -24,7 +27,8 @@ export class ReportsFacadeImpl implements ReportsFacade {
     private readonly getClientReportUseCase: GetClientReportUseCase,
     private readonly getReportByIdUseCase: GetReportByIdUseCase,
     private readonly listReportsUseCase: ListReportsUseCase,
-    private readonly deleteClientReportUseCase: DeleteClientReportUseCase
+    private readonly deleteClientReportUseCase: DeleteClientReportUseCase,
+    private readonly sendReportToWhatChimpUseCase: SendReportToWhatChimpUseCase
   ) {}
 
   async generateClientReport(input: GenerateClientReportRequestDto): Promise<ReportPreviewDto> {
@@ -88,6 +92,22 @@ export class ReportsFacadeImpl implements ReportsFacade {
       actorUserRole: input.actorUserRole,
       reportId: input.reportId,
     });
+  }
+
+  async sendReportToWhatChimp(
+    input: SendReportToWhatChimpRequestDto
+  ): Promise<SendReportToWhatChimpResponseDto> {
+    const result = await this.sendReportToWhatChimpUseCase.execute({
+      actorUserId: input.actorUserId,
+      actorUserRole: input.actorUserRole,
+      clientId: input.clientId,
+      recipientPhone: input.recipientPhone,
+      recipientSource: input.recipientSource,
+      recipientName: input.recipientName,
+      messageText: input.messageText,
+    });
+
+    return this.mapper.toSendReportToWhatChimpResponseDto(result);
   }
 
   private toStatus(value: string): ReportStatus {

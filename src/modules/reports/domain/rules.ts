@@ -1,4 +1,5 @@
 import {
+  DeliveryProvider,
   ReportFormat,
   ReportTemplateKey,
 } from './enums';
@@ -51,3 +52,14 @@ export const ReportRenderingRules = {
   userControlledRenderingSettings: false,
 } as const;
 
+export const ReportDeliveryRules = {
+  savedReportOnly: true,
+  generatedPdfRequired: true,
+  provider: DeliveryProvider.WhatChimp,
+  providerAcceptanceEndsLocalResponsibility: true,
+  deliveryTrackingInV1: false,
+  attemptMustBeAuditable: true,
+  employeeOwnOnly: true,
+  managerAndAdminAllReports: true,
+  viewerCanSendReports: false,
+} as const;

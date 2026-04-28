@@ -113,6 +113,21 @@ export const generateClientReportSchema = z.object({
   body: z.object({}).passthrough().optional(),
 });
 
+export const sendReportToWhatChimpSchema = z.object({
+  params: reportClientIdParamSchema.shape.params,
+  body: z.object({
+    recipientPhone: z.preprocess(
+      value => normalizeString(value),
+      z.string().min(1, 'recipientPhone is required')
+    ),
+    recipientSource: z
+      .preprocess(value => normalizeEnumString(value), z.enum(['whatsapp', 'mobile', 'custom']).optional())
+      .optional(),
+    recipientName: z.preprocess(value => normalizeString(value), z.string().max(255).optional()),
+    messageText: z.preprocess(value => normalizeString(value), z.string().max(1024).optional()),
+  }),
+});
+
 export const getClientReportSchema = reportClientIdParamSchema;
 export const getReportByIdSchema = reportIdParamSchema;
 export const deleteReportSchema = reportIdParamSchema;

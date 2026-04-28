@@ -1,4 +1,6 @@
 import {
+  DeliveryProvider,
+  DeliveryStatus,
   ReportFormat,
   ReportStatus,
   ReportTemplateKey,
@@ -15,6 +17,24 @@ export interface ClientReport {
   pdfPath: string | null;
   pdfUrl: string | null;
   generatedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ReportDeliveryAttempt {
+  id: string;
+  reportId: string;
+  clientId: string;
+  provider: DeliveryProvider;
+  recipientPhone: string;
+  recipientSource: string | null;
+  recipientName: string | null;
+  messageText: string | null;
+  status: DeliveryStatus;
+  providerMessageId: string | null;
+  providerStatusCode: string | null;
+  failureReason: string | null;
+  requestedByUserId: string;
   createdAt: Date;
   updatedAt: Date;
 }

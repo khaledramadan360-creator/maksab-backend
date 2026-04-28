@@ -18,6 +18,12 @@ export class ClientReportOwnershipService {
     }
   }
 
+  assertCanSendReport(actorRole: string): void {
+    if (![Role.Admin, Role.Manager, Role.Employee].includes(actorRole as Role)) {
+      throw new AuthorizationError('You do not have permission to send reports');
+    }
+  }
+
   assertCanReadReport(actorRole: string): void {
     if (![Role.Admin, Role.Manager, Role.Employee].includes(actorRole as Role)) {
       throw new AuthorizationError('You do not have permission to view reports');

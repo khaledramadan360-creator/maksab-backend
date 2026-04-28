@@ -1,5 +1,6 @@
 import {
   ClientReport,
+  ReportDeliveryAttempt,
   ReportMarketingSeasonSnapshot,
   ReportAnalysisSnapshot,
   ReportClientSnapshot,
@@ -10,6 +11,8 @@ import {
 } from './entities';
 import {
   AuditAction,
+  DeliveryProvider,
+  DeliveryStatus,
   ReportFormat,
   ReportStatus,
   ReportTemplateKey,
@@ -54,6 +57,7 @@ export interface ReplaceClientReportRecord {
 export interface ClientReportRepository {
   create(record: ClientReportCreateRecord): Promise<ClientReport>;
   replaceForClient(clientId: string, record: ReplaceClientReportRecord): Promise<ClientReport>;
+  findCurrentByClientId(clientId: string): Promise<ClientReport | null>;
   findByClientId(clientId: string): Promise<ClientReport | null>;
   findById(reportId: string): Promise<ClientReport | null>;
   list(
@@ -61,6 +65,36 @@ export interface ClientReportRepository {
     pagination: PaginationParams
   ): Promise<PaginatedResult<TeamReportOverviewItem>>;
   deleteById(reportId: string): Promise<void>;
+}
+
+export interface CreateReportDeliveryAttemptRecord {
+  reportId: string;
+  clientId: string;
+  provider: DeliveryProvider;
+  recipientPhone: string;
+  recipientSource: string | null;
+  recipientName: string | null;
+  messageText: string | null;
+  requestedByUserId: string;
+}
+
+export interface MarkReportDeliveryAttemptAcceptedRecord {
+  providerMessageId?: string | null;
+  providerStatusCode?: string | null;
+}
+
+export interface MarkReportDeliveryAttemptFailedRecord {
+  failureReason: string;
+  providerStatusCode?: string | null;
+}
+
+export interface ReportDeliveryAttemptRepository {
+  createPending(record: CreateReportDeliveryAttemptRecord): Promise<ReportDeliveryAttempt>;
+  markAccepted(attemptId: string, data: MarkReportDeliveryAttemptAcceptedRecord): Promise<ReportDeliveryAttempt>;
+  markFailed(attemptId: string, data: MarkReportDeliveryAttemptFailedRecord): Promise<ReportDeliveryAttempt>;
+  findLatestByClientId(clientId: string): Promise<ReportDeliveryAttempt | null>;
+  findLatestByReportId(reportId: string): Promise<ReportDeliveryAttempt | null>;
+  listByReportId(reportId: string): Promise<ReportDeliveryAttempt[]>;
 }
 
 export interface ReportsClientsLookupRepository {
@@ -107,6 +141,43 @@ export interface ReportPdfStorageProviderContract {
   getAccessibleUrl(path: string): Promise<string>;
 }
 
+export type SendableReportFileReferenceType = 'url' | 'binary' | 'token';
+
+export interface SendableReportFileReference {
+  type: SendableReportFileReferenceType;
+  url?: string;
+  data?: Buffer;
+  token?: string;
+  fileName: string;
+  contentType: 'application/pdf';
+  sizeBytes?: number;
+}
+
+export interface FileReferenceResolver {
+  resolveSendableFile(report: ClientReport): Promise<SendableReportFileReference>;
+}
+
+export interface WhatChimpSendDocumentCommand {
+  recipientPhone: string;
+  recipientName?: string | null;
+  messageText?: string | null;
+  document: SendableReportFileReference;
+  reportId: string;
+  clientId: string;
+  requestedByUserId: string;
+}
+
+export interface ProviderDispatchResult {
+  accepted: boolean;
+  providerMessageId?: string | null;
+  providerStatusCode?: string | null;
+  failureReason?: string | null;
+}
+
+export interface WhatChimpGateway {
+  sendDocument(command: WhatChimpSendDocumentCommand): Promise<ProviderDispatchResult>;
+}
+
 export interface RenderHtmlInput {
   template: ReportTemplateDefinition;
   payload: ReportRenderPayload;
@@ -128,7 +199,7 @@ export interface ReportPdfGeneratorContract {
 export interface ReportAuditLogEntry {
   actorUserId: string | null;
   action: AuditAction;
-  entityType: 'client_report';
+  entityType: 'client_report' | 'report_delivery_attempt';
   entityId: string;
   metadata: Record<string, unknown>;
 }

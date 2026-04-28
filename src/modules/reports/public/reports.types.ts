@@ -1,6 +1,9 @@
 export type ReportStatusDto = 'generating' | 'ready' | 'failed';
 export type ReportFormatDto = 'pdf';
 export type ReportTemplateKeyDto = 'default_client_report';
+export type ReportDeliveryStatusDto = 'accepted' | 'failed';
+export type ReportDeliveryProviderDto = 'whatchimp';
+export type RecipientSourceDto = 'whatsapp' | 'mobile' | 'custom' | null;
 export type ReportPlatformDto =
   | 'website'
   | 'facebook'
@@ -110,4 +113,28 @@ export interface GetReportByIdRequestDto
 export interface DeleteClientReportRequestDto
   extends RequestActorContext {
   reportId: string;
+}
+
+export interface SendReportToWhatChimpRequestDto
+  extends RequestActorContext {
+  clientId: string;
+  recipientPhone: string;
+  recipientSource?: RecipientSourceDto;
+  recipientName?: string | null;
+  messageText?: string | null;
+}
+
+export interface SendReportToWhatChimpResponseDto {
+  success: boolean;
+  status: ReportDeliveryStatusDto;
+  attemptId: string;
+  reportId: string;
+  clientId: string;
+  recipientPhone: string;
+  recipientSource: RecipientSourceDto;
+  provider: ReportDeliveryProviderDto;
+  providerMessageId: string | null;
+  providerStatusCode: string | null;
+  failureReason: string | null;
+  createdAt: string;
 }

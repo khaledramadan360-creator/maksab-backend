@@ -15,16 +15,21 @@ import { ReportTemplateProvider } from './infrastructure/providers/report-templa
 import { ReportRendererProvider } from './infrastructure/providers/report-renderer.provider';
 import { ReportPdfProvider } from './infrastructure/providers/report-pdf.provider';
 import { ReportPdfStorageProvider } from './infrastructure/providers/report-pdf-storage.provider';
+import { ReportFileReferenceResolver } from './infrastructure/providers/report-file-reference.resolver';
+import { WhatChimpHttpGateway } from './infrastructure/providers/whatchimp-http.gateway';
 import { ClientReportOwnershipService } from './application/services/client-report-ownership.service';
 import { ReportRenderPayloadBuilderService } from './application/services/report-render-payload-builder.service';
 import { ClientReportOrchestratorService } from './application/services/client-report-orchestrator.service';
 import { ClientReportReplacementService } from './application/services/client-report-replacement.service';
 import { ReportMapperService } from './application/services/report-mapper.service';
+import { ReportDeliveryFileAccessService, WhatChimpDispatchService } from './domain/services';
 import { GenerateClientReportUseCase } from './application/use-cases/generate-client-report.use-case';
 import { GetClientReportUseCase } from './application/use-cases/get-client-report.use-case';
 import { GetReportByIdUseCase } from './application/use-cases/get-report-by-id.use-case';
 import { ListReportsUseCase } from './application/use-cases/list-reports.use-case';
 import { DeleteClientReportUseCase } from './application/use-cases/delete-client-report.use-case';
+import { SendReportToWhatChimpUseCase } from './application/use-cases/send-report-to-whatchimp.use-case';
+import { MySQLReportDeliveryAttemptRepository } from './infrastructure/repositories/mysql-report-delivery-attempt.repository';
 
 export function initReportsModule(jwtService: JwtService): {
   router: Router;
@@ -36,13 +41,18 @@ export function initReportsModule(jwtService: JwtService): {
   const analysisLookupRepo = new MySQLReportsAnalysisLookupRepository();
   const marketingSeasonsLookupRepo = new MySQLReportsMarketingSeasonsLookupRepository();
   const auditRepo = new MySQLReportsAuditLogRepository();
+  const deliveryAttemptRepo = new MySQLReportDeliveryAttemptRepository();
 
   const templateProvider = new ReportTemplateProvider();
   const rendererProvider = new ReportRendererProvider();
   const pdfProvider = new ReportPdfProvider();
   const pdfStorageProvider = new ReportPdfStorageProvider();
+  const fileReferenceResolver = new ReportFileReferenceResolver(pdfStorageProvider);
+  const whatChimpGateway = new WhatChimpHttpGateway();
 
   const ownershipService = new ClientReportOwnershipService();
+  const fileAccessService = new ReportDeliveryFileAccessService();
+  const whatChimpDispatchService = new WhatChimpDispatchService(whatChimpGateway);
   const payloadBuilderService = new ReportRenderPayloadBuilderService(
     clientsLookupRepo,
     analysisLookupRepo,
@@ -88,6 +98,16 @@ export function initReportsModule(jwtService: JwtService): {
     ownershipService,
     auditRepo
   );
+  const sendReportToWhatChimpUseCase = new SendReportToWhatChimpUseCase(
+    clientsLookupRepo,
+    reportRepo,
+    deliveryAttemptRepo,
+    ownershipService,
+    fileAccessService,
+    fileReferenceResolver,
+    whatChimpDispatchService,
+    auditRepo
+  );
 
   const facade = new ReportsFacadeImpl(
     mapper,
@@ -95,7 +115,8 @@ export function initReportsModule(jwtService: JwtService): {
     getClientReportUseCase,
     getReportByIdUseCase,
     listReportsUseCase,
-    deleteClientReportUseCase
+    deleteClientReportUseCase,
+    sendReportToWhatChimpUseCase
   );
 
   const controller = new ReportsController(facade);
@@ -128,4 +149,6 @@ export type {
   GetClientReportRequestDto,
   GetReportByIdRequestDto,
   DeleteClientReportRequestDto,
+  SendReportToWhatChimpRequestDto,
+  SendReportToWhatChimpResponseDto,
 } from './public/reports.types';

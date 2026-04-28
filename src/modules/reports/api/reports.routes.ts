@@ -7,6 +7,7 @@ import {
   getClientReportSchema,
   getReportByIdSchema,
   listReportsSchema,
+  sendReportToWhatChimpSchema,
 } from './reports.schemas';
 import { requireAnyRole, validateRequest } from './reports.middleware';
 
@@ -32,6 +33,12 @@ export const createReportsRoutes = (
     canGenerateOrRead,
     validateRequest(getClientReportSchema),
     controller.getClientReport
+  );
+  router.post(
+    '/clients/:clientId/report/send-whatchimp',
+    canGenerateOrRead,
+    validateRequest(sendReportToWhatChimpSchema),
+    controller.sendReportToWhatChimp
   );
   router.get('/reports', canGenerateOrRead, validateRequest(listReportsSchema), controller.listReports);
   router.get(

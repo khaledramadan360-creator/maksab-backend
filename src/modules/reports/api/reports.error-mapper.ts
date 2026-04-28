@@ -7,6 +7,17 @@ import {
   ProviderError,
   ValidationError,
 } from '../application/errors';
+import {
+  ClientNotFoundError,
+  InvalidRecipientPhoneError,
+  ReportAccessDeniedError,
+  ReportDeliveryNotAllowedError,
+  ReportFileMissingError,
+  ReportNotFoundError,
+  WhatChimpRejectedError,
+  WhatChimpTimeoutError,
+  WhatChimpUnavailableError,
+} from '../domain/errors';
 
 export const reportsErrorMiddleware = (
   err: any,
@@ -27,6 +38,69 @@ export const reportsErrorMiddleware = (
     if (err instanceof ProviderError) status = 502;
 
     return res.status(status).json({
+      error: {
+        code: err.name,
+        message: err.message,
+      },
+    });
+  }
+
+  if (err instanceof ClientNotFoundError || err instanceof ReportNotFoundError) {
+    return res.status(404).json({
+      error: {
+        code: err.name,
+        message: err.message,
+      },
+    });
+  }
+
+  if (err instanceof ReportFileMissingError) {
+    return res.status(409).json({
+      error: {
+        code: err.name,
+        message: err.message,
+      },
+    });
+  }
+
+  if (err instanceof InvalidRecipientPhoneError) {
+    return res.status(400).json({
+      error: {
+        code: err.name,
+        message: err.message,
+      },
+    });
+  }
+
+  if (err instanceof ReportDeliveryNotAllowedError || err instanceof ReportAccessDeniedError) {
+    return res.status(403).json({
+      error: {
+        code: err.name,
+        message: err.message,
+      },
+    });
+  }
+
+  if (err instanceof WhatChimpRejectedError) {
+    return res.status(502).json({
+      error: {
+        code: err.name,
+        message: err.message,
+      },
+    });
+  }
+
+  if (err instanceof WhatChimpUnavailableError) {
+    return res.status(503).json({
+      error: {
+        code: err.name,
+        message: err.message,
+      },
+    });
+  }
+
+  if (err instanceof WhatChimpTimeoutError) {
+    return res.status(504).json({
       error: {
         code: err.name,
         message: err.message,

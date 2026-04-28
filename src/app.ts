@@ -7,6 +7,7 @@ import { initAnalysisModule } from './modules/analysis';
 import { initReportsModule } from './modules/reports';
 import { initMarketingSeasonsModule } from './modules/marketing-seasons';
 import { initSystemSettingsModule } from './modules/system-settings';
+import { initClientEmailCampaignsModule } from './modules/client-email-campaigns';
 import { JsonWebTokenService } from './modules/auth/infrastructure/services/jsonwebtoken.service';
 import {
   resolveAnalysisScreenshotsFilesBaseUrl,
@@ -83,6 +84,7 @@ export function createApp(): Express {
   const clientsModule = initClientsModule(jwtService);
   const reportsModule = initReportsModule(jwtService);
   const marketingSeasonsModule = initMarketingSeasonsModule(jwtService);
+  const clientEmailCampaignsModule = initClientEmailCampaignsModule(jwtService);
 
   // Mount API Routers
   app.use('/api/v1/auth', authModule.router);
@@ -90,6 +92,7 @@ export function createApp(): Express {
   app.use('/api/v1/system-settings', systemSettingsModule.router);
   app.use('/api/v1/clients', analysisModule.router);
   app.use('/api/v1/clients', clientsModule.router);
+  app.use('/api/v1/client-email-campaigns', clientEmailCampaignsModule.router);
   app.use('/api/v1', reportsModule.router);
   app.use('/api/v1/marketing-seasons', marketingSeasonsModule.router);
 
@@ -99,6 +102,7 @@ export function createApp(): Express {
   app.use('/api/v1/system-settings', systemSettingsModule.errorMiddleware);
   app.use('/api/v1/clients', analysisModule.errorMiddleware);
   app.use('/api/v1/clients', clientsModule.errorMiddleware);
+  app.use('/api/v1/client-email-campaigns', clientEmailCampaignsModule.errorMiddleware);
   app.use('/api/v1', reportsModule.errorMiddleware);
   app.use('/api/v1/marketing-seasons', marketingSeasonsModule.errorMiddleware);
 

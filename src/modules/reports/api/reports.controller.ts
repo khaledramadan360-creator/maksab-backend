@@ -90,6 +90,31 @@ export class ReportsController {
     res.status(204).send();
   });
 
+  sendReportToWhatChimp = asyncHandler(async (req: Request, res: Response) => {
+    const body = req.body as {
+      recipientPhone: string;
+      recipientSource?: 'whatsapp' | 'mobile' | 'custom' | null;
+      recipientName?: string | null;
+      messageText?: string | null;
+    };
+
+    const result = await this.facade.sendReportToWhatChimp({
+      actorUserId: req.user!.userId,
+      actorUserRole: req.user!.role,
+      clientId: req.params.clientId,
+      recipientPhone: body.recipientPhone,
+      recipientSource: body.recipientSource,
+      recipientName: body.recipientName,
+      messageText: body.messageText,
+    });
+
+    res.status(200).json({
+      success: result.success,
+      message: 'Report archived to WhatChimp successfully.',
+      data: result,
+    });
+  });
+
   private resolveAbsolutePublicUrl(req: Request, url: string | null): string | null {
     if (!url) {
       return null;

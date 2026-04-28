@@ -46,11 +46,5 @@ export const analysisErrorMiddleware = (
     });
   }
 
-  console.error('[UNHANDLED ERROR IN ANALYSIS API]', err);
-  return res.status(500).json({
-    error: {
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'An unexpected internal error occurred.',
-    },
-  });
+  return next(err);
 };
