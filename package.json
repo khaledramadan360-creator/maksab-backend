@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",
-    "@types/nodemailer": "^8.0.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
@@ -22,7 +21,6 @@
     "https-proxy-agent": "^9.0.0",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.9.7",
-    "nodemailer": "^8.0.5",
     "playwright-core": "^1.59.1",
     "sequelize": "^6.37.3",
     "uuid": "^9.0.1",

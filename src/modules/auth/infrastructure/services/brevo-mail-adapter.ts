@@ -1,14 +1,10 @@
-import * as nodemailer from 'nodemailer';
 import { AuthMailAdapter } from '../../application/services/mail-adapter.interface';
 
 /**
  * Production mail adapter for auth emails.
- * Uses Brevo Transactional API by default (or SMTP fallback based on environment settings).
+ * Uses Brevo Transactional HTTP API only.
  */
 export class BrevoMailAdapter implements AuthMailAdapter {
-  private _transporter: nodemailer.Transporter | null = null;
-  private _transporterVerified = false;
-  private _transporterVerificationAttempted = false;
   private _brevoConfigLogged = false;
   private _transportChoiceLogged = false;
 
@@ -16,16 +12,6 @@ export class BrevoMailAdapter implements AuthMailAdapter {
     console.log('[MAILER] BrevoMailAdapter initialized (auth emails via Brevo HTTP API, marketing key only)');
   }
 
-  private get smtpHost() { return process.env.SMTP_HOST ?? 'smtp-relay.brevo.com'; }
-  private get smtpPort() { return this.resolvePositiveInt(process.env.SMTP_PORT, 587); }
-  private get smtpUser() { return String(process.env.SMTP_USER || '').trim(); }
-  private get smtpPass() { return String(process.env.SMTP_PASS || '').trim(); }
-  private get smtpSecure() { return this.resolveBooleanFlag(process.env.SMTP_SECURE, false); }
-  private get smtpConnectionTimeoutMs() { return this.resolvePositiveInt(process.env.SMTP_CONNECTION_TIMEOUT_MS, 15000); }
-  private get smtpGreetingTimeoutMs() { return this.resolvePositiveInt(process.env.SMTP_GREETING_TIMEOUT_MS, 15000); }
-  private get smtpSocketTimeoutMs() { return this.resolvePositiveInt(process.env.SMTP_SOCKET_TIMEOUT_MS, 20000); }
-  private get smtpDebugEnabled() { return this.resolveBooleanFlag(process.env.SMTP_DEBUG, false); }
-  private get smtpVerifyBeforeSend() { return this.resolveBooleanFlag(process.env.SMTP_VERIFY_BEFORE_SEND, true); }
   private get brevoApiKey() {
     return process.env.BREVO_MARKETING_API_KEY?.trim() || '';
   }
@@ -39,34 +25,11 @@ export class BrevoMailAdapter implements AuthMailAdapter {
     return this.resolvePositiveInt(process.env.BREVO_MARKETING_TIMEOUT_MS, 30000);
   }
 
-  private get transporter(): nodemailer.Transporter {
-    if (!this._transporter) {
-      this.logTransportConfig('transporter-create');
-      this._transporter = nodemailer.createTransport({
-        host: this.smtpHost,
-        port: this.smtpPort,
-        secure: this.smtpSecure,
-        connectionTimeout: this.smtpConnectionTimeoutMs,
-        greetingTimeout: this.smtpGreetingTimeoutMs,
-        socketTimeout: this.smtpSocketTimeoutMs,
-        logger: this.smtpDebugEnabled,
-        debug: this.smtpDebugEnabled,
-        auth: {
-          user: this.smtpUser,
-          pass: this.smtpPass,
-        },
-      });
-    }
-    return this._transporter;
-  }
-
-  private get fromName() { return process.env.SMTP_FROM_NAME ?? 'Mksab'; }
+  private get fromName() { return process.env.MAIL_FROM_NAME ?? 'Mksab'; }
   private get fromEmail() { return process.env.MAIL_FROM_EMAIL ?? 'noreply@mksab.com'; }
   private get frontendUrl() { return process.env.APP_FRONTEND_URL ?? 'http://localhost:5173'; }
   private get inviteAcceptPath() { return process.env.APP_FRONTEND_INVITE_ACCEPT_PATH ?? '/accept-invite'; }
   private get resetPasswordPath() { return process.env.APP_FRONTEND_RESET_PASSWORD_PATH ?? '/reset-password'; }
-
-  private get fromHeader() { return `"${this.fromName}" <${this.fromEmail}>`; }
 
   // ─── Invite Email ──────────────────────────────────────────────────────────
   async sendInviteEmail(toEmail: string, token: string, role: string): Promise<void> {
@@ -177,31 +140,6 @@ export class BrevoMailAdapter implements AuthMailAdapter {
       kind: input.kind,
       to: input.maskedToEmail,
       messageId: result?.messageId,
-    });
-  }
-
-  private async sendViaSmtp(input: {
-    toEmail: string;
-    maskedToEmail: string;
-    subject: string;
-    html: string;
-    kind: 'invite' | 'password_reset';
-  }): Promise<void> {
-    await this.ensureTransportVerified();
-    const info = await this.transporter.sendMail({
-      from: this.fromHeader,
-      to: input.toEmail,
-      subject: input.subject,
-      html: input.html,
-    });
-
-    console.log('[MAILER] Email sent via SMTP', {
-      kind: input.kind,
-      to: input.maskedToEmail,
-      messageId: info.messageId,
-      accepted: info.accepted,
-      rejected: info.rejected,
-      response: info.response,
     });
   }
 
@@ -380,49 +318,6 @@ export class BrevoMailAdapter implements AuthMailAdapter {
     return map[role.toLowerCase()] ?? role;
   }
 
-  private async ensureTransportVerified(): Promise<void> {
-    if (!this.smtpVerifyBeforeSend) {
-      return;
-    }
-
-    if (this._transporterVerified || this._transporterVerificationAttempted) {
-      return;
-    }
-
-    this._transporterVerificationAttempted = true;
-    console.log('[MAILER] Verifying SMTP transport before send');
-
-    try {
-      await this.transporter.verify();
-      this._transporterVerified = true;
-      console.log('[MAILER] SMTP transport verified successfully');
-    } catch (err: any) {
-      console.error('[MAILER] SMTP transport verification failed', {
-        error: this.serializeMailError(err),
-      });
-      throw err;
-    }
-  }
-
-  private logTransportConfig(context: string): void {
-    console.log('[MAILER] SMTP config snapshot (' + context + ')', {
-      host: this.smtpHost,
-      port: this.smtpPort,
-      secure: this.smtpSecure,
-      userConfigured: this.smtpUser !== '',
-      passConfigured: this.smtpPass !== '',
-      fromEmail: this.fromEmail,
-      frontendUrl: this.frontendUrl,
-      inviteAcceptPath: this.inviteAcceptPath,
-      resetPasswordPath: this.resetPasswordPath,
-      verifyBeforeSend: this.smtpVerifyBeforeSend,
-      debugEnabled: this.smtpDebugEnabled,
-      connectionTimeoutMs: this.smtpConnectionTimeoutMs,
-      greetingTimeoutMs: this.smtpGreetingTimeoutMs,
-      socketTimeoutMs: this.smtpSocketTimeoutMs,
-    });
-  }
-
   private logBrevoApiConfig(): void {
     if (this._brevoConfigLogged) {
       return;
@@ -484,25 +379,6 @@ export class BrevoMailAdapter implements AuthMailAdapter {
     }
 
     return Math.floor(parsed);
-  }
-
-  private resolveBooleanFlag(rawValue: string | undefined, fallback: boolean): boolean {
-    const normalized = String(rawValue || '')
-      .trim()
-      .toLowerCase();
-    if (!normalized) {
-      return fallback;
-    }
-
-    if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') {
-      return true;
-    }
-
-    if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') {
-      return false;
-    }
-
-    return fallback;
   }
 
 }
