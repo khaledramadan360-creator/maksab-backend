@@ -10,6 +10,8 @@ export class ReportPdfProvider implements ReportPdfGeneratorContract {
   private readonly localChromePath: string;
   private readonly assetWaitTimeoutMs: number;
   private readonly settleDelayMs: number;
+  private readonly setContentWaitUntil: 'commit' | 'domcontentloaded' | 'load' | 'networkidle';
+  private readonly stripWebFontImports: boolean;
 
   constructor() {
     this.timeoutMs = this.resolveNonNegativeInt(process.env.REPORTS_PDF_TIMEOUT_MS, 0);
@@ -27,6 +29,13 @@ export class ReportPdfProvider implements ReportPdfGeneratorContract {
       5000
     );
     this.settleDelayMs = this.resolveNonNegativeInt(process.env.REPORTS_PDF_SETTLE_DELAY_MS, 350);
+    this.setContentWaitUntil = this.resolveSetContentWaitUntil(
+      process.env.REPORTS_PDF_SET_CONTENT_WAIT_UNTIL
+    );
+    this.stripWebFontImports = this.resolveBooleanFlag(
+      process.env.REPORTS_PDF_STRIP_WEB_FONTS,
+      true
+    );
     this.localChromePath = this.resolveLocalChromePath();
 
     const normalizedFormat = String(process.env.REPORTS_PDF_PAGE_FORMAT || '')
@@ -42,7 +51,10 @@ export class ReportPdfProvider implements ReportPdfGeneratorContract {
     }
 
     const htmlWithStyles = this.ensureCssInjected(html, String(input.css || ''));
-    const pdfBuffer = await this.renderWithFallback(htmlWithStyles);
+    const preparedHtml = this.stripWebFontImports
+      ? this.stripExternalWebFontImports(htmlWithStyles)
+      : htmlWithStyles;
+    const pdfBuffer = await this.renderWithFallback(preparedHtml);
 
     return {
       contentType: 'application/pdf',
@@ -51,28 +63,29 @@ export class ReportPdfProvider implements ReportPdfGeneratorContract {
   }
 
   private async renderWithFallback(html: string): Promise<Buffer> {
-    let localError: unknown = null;
+    if (this.wsEndpoint) {
+      let remoteError: unknown = null;
+      try {
+        return await this.renderWithRemoteChromium(html);
+      } catch (error) {
+        remoteError = error;
+      }
+
+      try {
+        return await this.renderWithLocalChromium(html);
+      } catch (localError) {
+        throw new Error(
+          `report_pdf_remote_and_local_failed remote="${this.getErrorMessage(
+            remoteError
+          )}" local="${this.getErrorMessage(localError)}"`
+        );
+      }
+    }
 
     try {
       return await this.renderWithLocalChromium(html);
-    } catch (error) {
-      localError = error;
-    }
-
-    if (!this.wsEndpoint) {
-      throw new Error(
-        `report_pdf_local_browser_failed: ${this.getErrorMessage(localError)}`
-      );
-    }
-
-    try {
-      return await this.renderWithRemoteChromium(html);
-    } catch (remoteError) {
-      throw new Error(
-        `report_pdf_remote_and_local_failed local="${this.getErrorMessage(
-          localError
-        )}" remote="${this.getErrorMessage(remoteError)}"`
-      );
+    } catch (localError) {
+      throw new Error(`report_pdf_local_browser_failed: ${this.getErrorMessage(localError)}`);
     }
   }
 
@@ -149,17 +162,14 @@ export class ReportPdfProvider implements ReportPdfGeneratorContract {
       });
 
       page = await context.newPage();
-      const setContentOptions =
-        this.timeoutMs > 0
-          ? {
-              waitUntil: 'domcontentloaded' as const,
-              timeout: this.timeoutMs,
-            }
-          : {
-              waitUntil: 'domcontentloaded' as const,
-            };
+      const setContentOptions: Record<string, unknown> = {
+        waitUntil: this.setContentWaitUntil,
+      };
+      if (this.timeoutMs > 0) {
+        setContentOptions.timeout = this.timeoutMs;
+      }
 
-      await page.setContent(html, setContentOptions);
+      await page.setContent(html, setContentOptions as any);
       await this.waitForPageImages(page);
       await page.evaluate(async (assetWaitTimeoutMs: number) => {
         const fonts = (document as any).fonts;
@@ -257,6 +267,56 @@ export class ReportPdfProvider implements ReportPdfGeneratorContract {
     }
 
     return Math.floor(parsed);
+  }
+
+  private resolveSetContentWaitUntil(
+    rawValue: string | undefined
+  ): 'commit' | 'domcontentloaded' | 'load' | 'networkidle' {
+    const normalized = String(rawValue || '')
+      .trim()
+      .toLowerCase();
+    if (
+      normalized === 'commit' ||
+      normalized === 'domcontentloaded' ||
+      normalized === 'load' ||
+      normalized === 'networkidle'
+    ) {
+      return normalized;
+    }
+
+    return 'commit';
+  }
+
+  private resolveBooleanFlag(rawValue: string | undefined, fallback: boolean): boolean {
+    const normalized = String(rawValue || '')
+      .trim()
+      .toLowerCase();
+    if (!normalized) {
+      return fallback;
+    }
+
+    if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') {
+      return true;
+    }
+
+    if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') {
+      return false;
+    }
+
+    return fallback;
+  }
+
+  private stripExternalWebFontImports(html: string): string {
+    return html
+      .replace(
+        /@import\s+url\((['"]?)https?:\/\/fonts\.googleapis\.com[^)]*\1\)\s*;?/gi,
+        ''
+      )
+      .replace(
+        /<link[^>]+rel=["']stylesheet["'][^>]*href=["']https?:\/\/fonts\.googleapis\.com[^"']*["'][^>]*>/gi,
+        ''
+      )
+      .replace(/<link[^>]+href=["']https?:\/\/fonts\.gstatic\.com[^"']*["'][^>]*>/gi, '');
   }
 
   private async waitForPageImages(page: any): Promise<void> {

@@ -4,8 +4,9 @@
   "description": "Modular Monolith Backend",
   "main": "src/app.ts",
   "scripts": {
-    "postinstall": "npx playwright install chromium",
+    "postinstall": "node scripts/install-playwright.js",
     "install:playwright": "npx playwright install chromium",
+    "install:playwright:deps": "npx playwright install --with-deps chromium",
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
