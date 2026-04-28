@@ -21,9 +21,14 @@ export class RequestPasswordResetUseCase {
 
   async execute(input: RequestPasswordResetInput): Promise<void> {
     const email = input.email.trim().toLowerCase();
+    const maskedEmail = this.maskEmail(email);
+    console.log('[AUTH][RESET] Password reset requested', { email: maskedEmail });
     const user = await this.userRepo.findByEmail(email);
 
     if (!user || user.status !== UserStatus.Active) {
+      console.warn('[AUTH][RESET] Reset email skipped (user not found or inactive)', {
+        email: maskedEmail,
+      });
       return;
     }
 
@@ -48,6 +53,24 @@ export class RequestPasswordResetUseCase {
       metadata: { email }
     });
 
+    console.log('[AUTH][RESET] Sending password reset email', {
+      userId: user.id,
+      resetId: resetRecord.id,
+      email: maskedEmail,
+    });
     await this.mailer.sendPasswordResetEmail(email, rawToken);
+    console.log('[AUTH][RESET] Password reset email send completed', {
+      resetId: resetRecord.id,
+      email: maskedEmail,
+    });
+  }
+
+  private maskEmail(email: string): string {
+    const atIndex = email.indexOf('@');
+    if (atIndex <= 1) {
+      return '***';
+    }
+
+    return email[0] + '***' + email.slice(atIndex - 1);
   }
 }

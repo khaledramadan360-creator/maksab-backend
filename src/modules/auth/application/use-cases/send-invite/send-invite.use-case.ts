@@ -32,6 +32,7 @@ export class SendInviteUseCase {
 
   async execute(input: SendInviteInput): Promise<SendInviteOutput> {
     const email = input.targetEmail.trim().toLowerCase();
+    const maskedEmail = this.maskEmail(email);
 
     const actor = await this.userRepo.findById(input.actorUserId);
     if (!actor) throw new NotFoundError('Actor not found');
@@ -75,7 +76,17 @@ export class SendInviteUseCase {
       metadata: { role: input.targetRole, email }
     });
 
+    console.log('[AUTH][INVITE] Sending invite email', {
+      actorUserId: actor.id,
+      inviteId: invite.id,
+      role: input.targetRole,
+      email: maskedEmail,
+    });
     await this.mailer.sendInviteEmail(email, rawToken, input.targetRole);
+    console.log('[AUTH][INVITE] Invite email send completed', {
+      inviteId: invite.id,
+      email: maskedEmail,
+    });
 
     return {
       inviteId: invite.id,
@@ -84,5 +95,14 @@ export class SendInviteUseCase {
       status: invite.status,
       expiresAt: invite.expiresAt,
     };
+  }
+
+  private maskEmail(email: string): string {
+    const atIndex = email.indexOf('@');
+    if (atIndex <= 1) {
+      return '***';
+    }
+
+    return email[0] + '***' + email.slice(atIndex - 1);
   }
 }

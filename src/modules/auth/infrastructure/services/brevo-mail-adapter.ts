@@ -12,6 +12,10 @@ export class BrevoMailAdapter implements AuthMailAdapter {
   private _brevoConfigLogged = false;
   private _transportChoiceLogged = false;
 
+  constructor() {
+    console.log('[MAILER] BrevoMailAdapter initialized (auth emails via Brevo HTTP API, marketing key only)');
+  }
+
   private get smtpHost() { return process.env.SMTP_HOST ?? 'smtp-relay.brevo.com'; }
   private get smtpPort() { return this.resolvePositiveInt(process.env.SMTP_PORT, 587); }
   private get smtpUser() { return String(process.env.SMTP_USER || '').trim(); }
@@ -23,38 +27,16 @@ export class BrevoMailAdapter implements AuthMailAdapter {
   private get smtpDebugEnabled() { return this.resolveBooleanFlag(process.env.SMTP_DEBUG, false); }
   private get smtpVerifyBeforeSend() { return this.resolveBooleanFlag(process.env.SMTP_VERIFY_BEFORE_SEND, true); }
   private get brevoApiKey() {
-    return (
-      process.env.BREVO_AUTH_API_KEY?.trim() ||
-      process.env.BREVO_MARKETING_API_KEY?.trim() ||
-      process.env.BREVO_API_KEY?.trim() ||
+    return process.env.BREVO_MARKETING_API_KEY?.trim() || '';
+  }
+  private get brevoBaseUrl() {
+    return (process.env.BREVO_MARKETING_BASE_URL?.trim() || 'https://api.brevo.com/v3').replace(
+      /\/+$/g,
       ''
     );
   }
-  private get brevoBaseUrl() {
-    return (
-      process.env.BREVO_AUTH_BASE_URL?.trim() ||
-      process.env.BREVO_MARKETING_BASE_URL?.trim() ||
-      process.env.BREVO_BASE_URL?.trim() ||
-      'https://api.brevo.com/v3'
-    ).replace(/\/+$/g, '');
-  }
   private get brevoTimeoutMs() {
-    return this.resolvePositiveInt(
-      process.env.BREVO_AUTH_TIMEOUT_MS,
-      this.resolvePositiveInt(process.env.BREVO_MARKETING_TIMEOUT_MS, 30000)
-    );
-  }
-  private get mailTransportMode(): 'auto' | 'brevo_api' | 'smtp' {
-    const normalized = String(process.env.AUTH_MAIL_TRANSPORT || '')
-      .trim()
-      .toLowerCase();
-    if (normalized === 'brevo_api') {
-      return 'brevo_api';
-    }
-    if (normalized === 'smtp') {
-      return 'smtp';
-    }
-    return 'auto';
+    return this.resolvePositiveInt(process.env.BREVO_MARKETING_TIMEOUT_MS, 30000);
   }
 
   private get transporter(): nodemailer.Transporter {
@@ -132,18 +114,13 @@ export class BrevoMailAdapter implements AuthMailAdapter {
     html: string;
     kind: 'invite' | 'password_reset';
   }): Promise<void> {
-    const mode = this.resolveEffectiveTransportMode();
-    this.logEffectiveTransport(mode);
+    this.logEffectiveTransport();
 
     try {
-      if (mode === 'brevo_api') {
-        await this.sendViaBrevoApi(input);
-      } else {
-        await this.sendViaSmtp(input);
-      }
+      await this.sendViaBrevoApi(input);
     } catch (err: any) {
       console.error('[MAILER] Send failed', {
-        mode,
+        mode: 'brevo_api',
         kind: input.kind,
         to: input.maskedToEmail,
         error: this.serializeMailError(err),
@@ -152,32 +129,16 @@ export class BrevoMailAdapter implements AuthMailAdapter {
     }
   }
 
-  private resolveEffectiveTransportMode(): 'brevo_api' | 'smtp' {
-    if (this.mailTransportMode === 'brevo_api') {
-      return 'brevo_api';
-    }
-
-    if (this.mailTransportMode === 'smtp') {
-      return 'smtp';
-    }
-
-    return this.brevoApiKey ? 'brevo_api' : 'smtp';
-  }
-
-  private logEffectiveTransport(mode: 'brevo_api' | 'smtp'): void {
+  private logEffectiveTransport(): void {
     if (this._transportChoiceLogged) {
       return;
     }
 
     this._transportChoiceLogged = true;
     console.log('[MAILER] Effective auth mail transport', {
-      configuredMode: this.mailTransportMode,
-      effectiveMode: mode,
+      effectiveMode: 'brevo_api',
+      keySource: 'BREVO_MARKETING_API_KEY',
       brevoApiKeyConfigured: this.brevoApiKey !== '',
-      smtpUserConfigured: this.smtpUser !== '',
-      smtpPassConfigured: this.smtpPass !== '',
-      smtpHost: this.smtpHost,
-      smtpPort: this.smtpPort,
     });
   }
 
@@ -189,7 +150,7 @@ export class BrevoMailAdapter implements AuthMailAdapter {
     kind: 'invite' | 'password_reset';
   }): Promise<void> {
     if (!this.brevoApiKey) {
-      throw new Error('BREVO_API_KEY_MISSING');
+      throw new Error('BREVO_MARKETING_API_KEY_MISSING');
     }
     this.logBrevoApiConfig();
 
@@ -469,7 +430,8 @@ export class BrevoMailAdapter implements AuthMailAdapter {
 
     this._brevoConfigLogged = true;
     console.log('[MAILER] Brevo API config snapshot', {
-      transportMode: this.mailTransportMode,
+      transportMode: 'brevo_api',
+      keySource: 'BREVO_MARKETING_API_KEY',
       apiKeyConfigured: this.brevoApiKey !== '',
       baseUrl: this.brevoBaseUrl,
       timeoutMs: this.brevoTimeoutMs,

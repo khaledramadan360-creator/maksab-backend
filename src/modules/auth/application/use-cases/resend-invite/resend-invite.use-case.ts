@@ -79,7 +79,19 @@ export class ResendInviteUseCase {
     });
 
     // Step 4: Mail
+    const maskedEmail = this.maskEmail(newInvite.email);
+    console.log('[AUTH][INVITE] Resending invite email', {
+      actorUserId: actor.id,
+      oldInviteId: oldInvite.id,
+      inviteId: newInvite.id,
+      role: newInvite.role,
+      email: maskedEmail,
+    });
     await this.mailer.sendInviteEmail(newInvite.email, rawToken, newInvite.role);
+    console.log('[AUTH][INVITE] Resend invite email completed', {
+      inviteId: newInvite.id,
+      email: maskedEmail,
+    });
 
     return {
       inviteId: newInvite.id,
@@ -88,5 +100,14 @@ export class ResendInviteUseCase {
       status: newInvite.status,
       expiresAt: newInvite.expiresAt,
     };
+  }
+
+  private maskEmail(email: string): string {
+    const atIndex = email.indexOf('@');
+    if (atIndex <= 1) {
+      return '***';
+    }
+
+    return email[0] + '***' + email.slice(atIndex - 1);
   }
 }
