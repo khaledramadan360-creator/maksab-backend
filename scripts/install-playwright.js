@@ -4,6 +4,10 @@ const run = command => {
   execSync(command, { stdio: 'inherit' });
 };
 
+if (process.env.SKIP_PLAYWRIGHT_POSTINSTALL === '1') {
+  process.exit(0);
+}
+
 const isLinux = process.platform === 'linux';
 
 if (isLinux) {

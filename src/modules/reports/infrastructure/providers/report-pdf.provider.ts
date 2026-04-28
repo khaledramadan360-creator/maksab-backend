@@ -18,8 +18,6 @@ export class ReportPdfProvider implements ReportPdfGeneratorContract {
     this.wsEndpoint = (
       process.env.REPORTS_PDF_WS_ENDPOINT ||
       process.env.REPORTS_BRIGHT_DATA_WS_ENDPOINT ||
-      process.env.BRIGHT_DATA_WS_ENDPOINT ||
-      process.env.BRIGHTDATA_WS_ENDPOINT ||
       ''
     ).trim();
     this.viewportWidth = this.resolvePositiveInt(process.env.REPORTS_PDF_VIEWPORT_WIDTH, 1240);
