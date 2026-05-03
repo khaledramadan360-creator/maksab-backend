@@ -56,7 +56,76 @@ Query params (suggested):
 Response:
 - `200 OK` + paginated list payload
 
-## 4) Get Report by Id
+## 4) Get WhatChimp Phone Number Options
+
+`GET /api/v1/reports/whatchimp-phone-number-options`
+
+Purpose:
+- return configured WhatChimp sender/account mappings for optional frontend use
+- frontend may use it as a helper, but the backend no longer requires the dropdown to be sourced from this endpoint
+
+Response:
+- `200 OK` + options payload
+
+Example payload:
+
+```json
+{
+  "data": {
+    "options": [
+      {
+        "id": "1058544604005637",
+        "name": "maksab",
+        "phoneNumber": "+966549483112",
+        "label": "maksab (+966549483112)",
+        "isDefault": true
+      }
+    ],
+    "defaultPhoneNumberId": "1058544604005637",
+    "allowCustomPhoneNumberId": true
+  }
+}
+```
+
+Runtime note:
+- the dropdown options are read from `WHATCHIMP_PHONE_NUMBER_OPTIONS` (or alias `WHATCHIMP_PHONE_NUMBER_OPTIONS_JSON`) as a JSON array
+- example:
+
+```json
+[
+  { "id": "1058544604005637", "name": "maksab", "phoneNumber": "+966549483112", "isDefault": true },
+  { "id": "another-whatchimp-id", "name": "maksab", "phoneNumber": "+966115004605" },
+  { "id": "third-whatchimp-id", "name": "Tadween", "phoneNumber": "+966569038872" }
+]
+```
+
+## 5) Send Report to WhatChimp
+
+`POST /api/v1/clients/:clientId/report/send-whatchimp`
+
+Purpose:
+- archive/send the current client report to WhatChimp
+- accepts a destination phone plus an optional WhatChimp sender selector value from the frontend
+
+Request body:
+- `recipientPhone` required
+- `recipientSource?` = `whatsapp|mobile|custom`
+- `recipientName?`
+- `messageText?`
+- `whatchimpPhoneNumberId?` optional sender selector value from the frontend
+
+Resolution rules:
+- if `whatchimpPhoneNumberId` matches a configured WhatChimp internal account id, backend uses it directly
+- if `whatchimpPhoneNumberId` matches a configured sender `phoneNumber`, backend resolves it to the mapped internal account id
+- if no value is sent, backend falls back to `WHATCHIMP_PHONE_NUMBER_ID`
+- if a custom value is sent and no mapping is found, backend passes it through as-is
+
+Response note:
+- send response now includes:
+  - `whatchimpPhoneNumberId`: the effective sender value used after resolution
+  - `resolvedWhatChimpAccountId`: the internal WhatChimp account id used for the provider call
+
+## 6) Get Report by Id
 
 `GET /api/v1/reports/:reportId`
 
@@ -67,7 +136,7 @@ Response:
 - `200 OK` + report preview payload
 - `404 Not Found` if report does not exist
 
-## 5) Delete Report
+## 7) Delete Report
 
 `DELETE /api/v1/reports/:reportId`
 
@@ -195,4 +264,3 @@ The module should emit:
 
 ### Client Details Action
 - action button for generate/re-generate/open current report
-

@@ -49,6 +49,7 @@ export interface SendReportToWhatChimpInput
   recipientSource?: string | null;
   recipientName?: string | null;
   messageText?: string | null;
+  whatchimpPhoneNumberId?: string | null;
 }
 
 export interface SendReportToWhatChimpResult {
@@ -58,6 +59,22 @@ export interface SendReportToWhatChimpResult {
   providerMessageId: string | null;
   providerStatusCode: string | null;
   failureReason: string | null;
+  whatchimpPhoneNumberId: string | null;
+  resolvedWhatChimpAccountId: string | null;
+}
+
+export interface GetWhatChimpPhoneNumberOptionsInput extends ReportsActorContext {}
+
+export interface GetWhatChimpPhoneNumberOptionsResult {
+  options: Array<{
+    id: string;
+    name: string | null;
+    phoneNumber: string | null;
+    label: string;
+    isDefault: boolean;
+  }>;
+  defaultPhoneNumberId: string | null;
+  allowCustomPhoneNumberId: boolean;
 }
 
 export interface ListReportDeliveryAttemptsInput
@@ -71,6 +88,9 @@ export interface IReportsUseCases {
   getReportById(input: GetReportByIdInput): Promise<ClientReport | null>;
   listReports(input: ListReportsInput): Promise<PaginatedResult<TeamReportOverviewItem>>;
   deleteClientReport(input: DeleteClientReportInput): Promise<void>;
+  getWhatChimpPhoneNumberOptions(
+    input: GetWhatChimpPhoneNumberOptionsInput
+  ): Promise<GetWhatChimpPhoneNumberOptionsResult>;
   sendReportToWhatChimp(input: SendReportToWhatChimpInput): Promise<SendReportToWhatChimpResult>;
   listReportDeliveryAttempts(input: ListReportDeliveryAttemptsInput): Promise<ReportDeliveryAttempt[]>;
 }

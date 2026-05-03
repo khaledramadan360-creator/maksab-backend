@@ -5,6 +5,7 @@ import {
   deleteReportSchema,
   generateClientReportSchema,
   getClientReportSchema,
+  getWhatChimpPhoneNumberOptionsSchema,
   getReportByIdSchema,
   listReportsSchema,
   sendReportToWhatChimpSchema,
@@ -33,6 +34,12 @@ export const createReportsRoutes = (
     canGenerateOrRead,
     validateRequest(getClientReportSchema),
     controller.getClientReport
+  );
+  router.get(
+    '/reports/whatchimp-phone-number-options',
+    canGenerateOrRead,
+    validateRequest(getWhatChimpPhoneNumberOptionsSchema),
+    controller.getWhatChimpPhoneNumberOptions
   );
   router.post(
     '/clients/:clientId/report/send-whatchimp',

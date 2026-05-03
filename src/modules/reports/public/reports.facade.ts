@@ -2,12 +2,14 @@ import {
   DeleteClientReportRequestDto,
   GenerateClientReportRequestDto,
   GetClientReportRequestDto,
+  GetWhatChimpPhoneNumberOptionsRequestDto,
   GetReportByIdRequestDto,
   ListReportsQueryDto,
   ReportPreviewDto,
   ReportsListResponseDto,
   SendReportToWhatChimpRequestDto,
   SendReportToWhatChimpResponseDto,
+  WhatChimpPhoneNumberOptionsDto,
 } from './reports.types';
 
 /**
@@ -20,5 +22,8 @@ export interface ReportsFacade {
   getReportById(input: GetReportByIdRequestDto): Promise<ReportPreviewDto | null>;
   listReports(input: ListReportsQueryDto): Promise<ReportsListResponseDto>;
   deleteClientReport(input: DeleteClientReportRequestDto): Promise<void>;
+  getWhatChimpPhoneNumberOptions(
+    input: GetWhatChimpPhoneNumberOptionsRequestDto
+  ): Promise<WhatChimpPhoneNumberOptionsDto>;
   sendReportToWhatChimp(input: SendReportToWhatChimpRequestDto): Promise<SendReportToWhatChimpResponseDto>;
 }

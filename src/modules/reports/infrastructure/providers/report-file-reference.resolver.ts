@@ -5,11 +5,10 @@ import { ReportFileMissingError } from '../../domain/errors';
 
 export class ReportFileReferenceResolver implements FileReferenceResolver {
   private readonly appBaseUrl: string;
+  private hasWarnedAboutRelativeUrl = false;
 
   constructor(private readonly pdfStorageProvider: ReportPdfStorageProviderContract) {
-    this.appBaseUrl = String(process.env.APP_BASE_URL || '')
-      .trim()
-      .replace(/\/+$/g, '');
+    this.appBaseUrl = this.resolveAppBaseUrl();
   }
 
   async resolveSendableFile(report: ClientReport): Promise<SendableReportFileReference> {
@@ -70,10 +69,65 @@ export class ReportFileReferenceResolver implements FileReferenceResolver {
     }
 
     if (!this.appBaseUrl) {
+      if (!this.hasWarnedAboutRelativeUrl) {
+        this.hasWarnedAboutRelativeUrl = true;
+        console.warn(
+          '[REPORT_FILE_URL] Relative report URL detected without APP_BASE_URL. ' +
+            'Set APP_BASE_URL or use an absolute REPORTS_FILES_BASE_URL.'
+        );
+      }
       return trimmed;
     }
 
     const normalizedPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
     return `${this.appBaseUrl}${normalizedPath}`;
+  }
+
+  private resolveAppBaseUrl(): string {
+    const envCandidates = [
+      process.env.APP_BASE_URL,
+      process.env.REPORTS_PUBLIC_BASE_URL,
+      process.env.BACKEND_BASE_URL,
+      process.env.PUBLIC_API_BASE_URL,
+    ];
+
+    for (const candidate of envCandidates) {
+      const normalized = this.normalizeAbsoluteBaseUrl(candidate);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    const reportsFilesBaseUrl = String(process.env.REPORTS_FILES_BASE_URL || '').trim();
+    const fromReportsBase = this.extractOriginFromAbsoluteUrl(reportsFilesBaseUrl);
+    if (fromReportsBase) {
+      return fromReportsBase;
+    }
+
+    return '';
+  }
+
+  private normalizeAbsoluteBaseUrl(value: string | undefined): string {
+    const trimmed = String(value || '')
+      .trim()
+      .replace(/\/+$/g, '');
+    if (!trimmed) {
+      return '';
+    }
+
+    return /^https?:\/\//i.test(trimmed) ? trimmed : '';
+  }
+
+  private extractOriginFromAbsoluteUrl(value: string): string {
+    const trimmed = String(value || '').trim();
+    if (!/^https?:\/\//i.test(trimmed)) {
+      return '';
+    }
+
+    try {
+      return new URL(trimmed).origin;
+    } catch {
+      return '';
+    }
   }
 }

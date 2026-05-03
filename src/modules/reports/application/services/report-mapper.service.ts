@@ -1,10 +1,16 @@
-import { ReportPreviewResult, SendReportToWhatChimpResult } from '../dto/reports.commands';
+import {
+  GetWhatChimpPhoneNumberOptionsResult,
+  ReportPreviewResult,
+  SendReportToWhatChimpResult,
+} from '../dto/reports.commands';
 import {
   ClientReportDto,
   ReportPreviewDto,
   ReportsListItemDto,
   ReportsListResponseDto,
   SendReportToWhatChimpResponseDto,
+  WhatChimpPhoneNumberOptionDto,
+  WhatChimpPhoneNumberOptionsDto,
 } from '../../public/reports.types';
 import { TeamReportOverviewItem } from '../../domain/entities';
 import { PaginatedResult } from '../../domain/repositories';
@@ -54,6 +60,16 @@ export class ReportMapperService {
     };
   }
 
+  toWhatChimpPhoneNumberOptionsDto(
+    result: GetWhatChimpPhoneNumberOptionsResult
+  ): WhatChimpPhoneNumberOptionsDto {
+    return {
+      options: result.options.map(option => this.toWhatChimpPhoneNumberOptionDto(option)),
+      defaultPhoneNumberId: result.defaultPhoneNumberId,
+      allowCustomPhoneNumberId: result.allowCustomPhoneNumberId,
+    };
+  }
+
   toSendReportToWhatChimpResponseDto(
     result: SendReportToWhatChimpResult
   ): SendReportToWhatChimpResponseDto {
@@ -69,6 +85,8 @@ export class ReportMapperService {
       providerMessageId: result.providerMessageId,
       providerStatusCode: result.providerStatusCode,
       failureReason: result.failureReason,
+      whatchimpPhoneNumberId: result.whatchimpPhoneNumberId,
+      resolvedWhatChimpAccountId: result.resolvedWhatChimpAccountId,
       createdAt: result.createdAt.toISOString(),
     };
   }
@@ -116,6 +134,22 @@ export class ReportMapperService {
       status: item.status as ReportsListItemDto['status'],
       generatedAt: item.generatedAt ? item.generatedAt.toISOString() : null,
       updatedAt: item.updatedAt.toISOString(),
+    };
+  }
+
+  private toWhatChimpPhoneNumberOptionDto(option: {
+    id: string;
+    name: string | null;
+    phoneNumber: string | null;
+    label: string;
+    isDefault: boolean;
+  }): WhatChimpPhoneNumberOptionDto {
+    return {
+      id: option.id,
+      name: option.name,
+      phoneNumber: option.phoneNumber,
+      label: option.label,
+      isDefault: option.isDefault,
     };
   }
 }

@@ -153,6 +153,14 @@ export interface SendableReportFileReference {
   sizeBytes?: number;
 }
 
+export interface WhatChimpPhoneNumberOption {
+  id: string;
+  name: string | null;
+  phoneNumber: string | null;
+  label: string;
+  isDefault: boolean;
+}
+
 export interface FileReferenceResolver {
   resolveSendableFile(report: ClientReport): Promise<SendableReportFileReference>;
 }
@@ -161,6 +169,7 @@ export interface WhatChimpSendDocumentCommand {
   recipientPhone: string;
   recipientName?: string | null;
   messageText?: string | null;
+  whatchimpPhoneNumberId?: string | null;
   document: SendableReportFileReference;
   reportId: string;
   clientId: string;
@@ -172,9 +181,14 @@ export interface ProviderDispatchResult {
   providerMessageId?: string | null;
   providerStatusCode?: string | null;
   failureReason?: string | null;
+  resolvedWhatChimpAccountId?: string | null;
+  resolvedWhatChimpSenderValue?: string | null;
 }
 
 export interface WhatChimpGateway {
+  getPhoneNumberOptions(): WhatChimpPhoneNumberOption[];
+  getDefaultPhoneNumberId(): string | null;
+  allowsCustomPhoneNumberId(): boolean;
   sendDocument(command: WhatChimpSendDocumentCommand): Promise<ProviderDispatchResult>;
 }
 

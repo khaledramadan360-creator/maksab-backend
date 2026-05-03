@@ -67,6 +67,7 @@ export class SendReportToWhatChimpUseCase {
     const recipientName = RecipientName.create(command.recipientName).value;
     const messageText = MessageText.create(command.messageText).value;
     const recipientSource = this.normalizeRecipientSource(command.recipientSource);
+    const requestedWhatChimpSenderValue = this.normalizePhoneNumberId(command.whatchimpPhoneNumberId);
 
     const sendableFile = await this.fileAccessService.resolveSendableFile(
       report,
@@ -96,6 +97,7 @@ export class SendReportToWhatChimpUseCase {
         provider: DeliveryProvider.WhatChimp,
         recipientPhone,
         recipientSource,
+        whatchimpPhoneNumberId: requestedWhatChimpSenderValue,
       },
     });
 
@@ -104,11 +106,17 @@ export class SendReportToWhatChimpUseCase {
         recipientPhone,
         recipientName,
         messageText,
+        whatchimpPhoneNumberId: requestedWhatChimpSenderValue,
         document: sendableFile,
         reportId: report.id,
         clientId: report.clientId,
         requestedByUserId: command.actorUserId,
       });
+      const resolvedWhatChimpAccountId = dispatchResult.resolvedWhatChimpAccountId ?? null;
+      const effectiveWhatChimpSenderValue =
+        dispatchResult.resolvedWhatChimpSenderValue ??
+        requestedWhatChimpSenderValue ??
+        null;
 
       const acceptedAttempt = await this.attemptRepo.markAccepted(pendingAttempt.id, {
         providerMessageId: dispatchResult.providerMessageId ?? null,
@@ -127,6 +135,8 @@ export class SendReportToWhatChimpUseCase {
           provider: acceptedAttempt.provider,
           providerMessageId: acceptedAttempt.providerMessageId,
           providerStatusCode: acceptedAttempt.providerStatusCode,
+          whatchimpPhoneNumberId: effectiveWhatChimpSenderValue,
+          resolvedWhatChimpAccountId,
         },
       });
 
@@ -142,6 +152,8 @@ export class SendReportToWhatChimpUseCase {
         providerMessageId: acceptedAttempt.providerMessageId,
         providerStatusCode: acceptedAttempt.providerStatusCode,
         failureReason: null,
+        whatchimpPhoneNumberId: effectiveWhatChimpSenderValue,
+        resolvedWhatChimpAccountId,
         createdAt: acceptedAttempt.createdAt,
       };
     } catch (error: any) {
@@ -169,6 +181,7 @@ export class SendReportToWhatChimpUseCase {
             provider: failedAttempt.provider,
             providerStatusCode: failedAttempt.providerStatusCode,
             failureReason: failedAttempt.failureReason,
+            whatchimpPhoneNumberId: requestedWhatChimpSenderValue,
           },
         });
       } catch {
@@ -182,6 +195,7 @@ export class SendReportToWhatChimpUseCase {
         provider: DeliveryProvider.WhatChimp,
         providerStatusCode,
         failureReason,
+        whatchimpPhoneNumberId: requestedWhatChimpSenderValue,
       });
 
       throw error;
@@ -199,6 +213,11 @@ export class SendReportToWhatChimpUseCase {
 
   private normalizeProviderStatusCode(value: unknown): string | null {
     const normalized = String(value ?? '').trim();
+    return normalized === '' ? null : normalized;
+  }
+
+  private normalizePhoneNumberId(value?: string | null): string | null {
+    const normalized = String(value || '').trim();
     return normalized === '' ? null : normalized;
   }
 

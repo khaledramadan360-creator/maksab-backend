@@ -28,6 +28,7 @@ import { GetClientReportUseCase } from './application/use-cases/get-client-repor
 import { GetReportByIdUseCase } from './application/use-cases/get-report-by-id.use-case';
 import { ListReportsUseCase } from './application/use-cases/list-reports.use-case';
 import { DeleteClientReportUseCase } from './application/use-cases/delete-client-report.use-case';
+import { GetWhatChimpPhoneNumberOptionsUseCase } from './application/use-cases/get-whatchimp-phone-number-options.use-case';
 import { SendReportToWhatChimpUseCase } from './application/use-cases/send-report-to-whatchimp.use-case';
 import { MySQLReportDeliveryAttemptRepository } from './infrastructure/repositories/mysql-report-delivery-attempt.repository';
 
@@ -98,6 +99,10 @@ export function initReportsModule(jwtService: JwtService): {
     ownershipService,
     auditRepo
   );
+  const getWhatChimpPhoneNumberOptionsUseCase = new GetWhatChimpPhoneNumberOptionsUseCase(
+    ownershipService,
+    whatChimpGateway
+  );
   const sendReportToWhatChimpUseCase = new SendReportToWhatChimpUseCase(
     clientsLookupRepo,
     reportRepo,
@@ -116,6 +121,7 @@ export function initReportsModule(jwtService: JwtService): {
     getReportByIdUseCase,
     listReportsUseCase,
     deleteClientReportUseCase,
+    getWhatChimpPhoneNumberOptionsUseCase,
     sendReportToWhatChimpUseCase
   );
 
@@ -149,6 +155,9 @@ export type {
   GetClientReportRequestDto,
   GetReportByIdRequestDto,
   DeleteClientReportRequestDto,
+  GetWhatChimpPhoneNumberOptionsRequestDto,
+  WhatChimpPhoneNumberOptionDto,
+  WhatChimpPhoneNumberOptionsDto,
   SendReportToWhatChimpRequestDto,
   SendReportToWhatChimpResponseDto,
 } from './public/reports.types';

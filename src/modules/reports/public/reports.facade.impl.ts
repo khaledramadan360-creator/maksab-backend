@@ -3,12 +3,14 @@ import {
   DeleteClientReportRequestDto,
   GenerateClientReportRequestDto,
   GetClientReportRequestDto,
+  GetWhatChimpPhoneNumberOptionsRequestDto,
   GetReportByIdRequestDto,
   ListReportsQueryDto,
   ReportPreviewDto,
   ReportsListResponseDto,
   SendReportToWhatChimpRequestDto,
   SendReportToWhatChimpResponseDto,
+  WhatChimpPhoneNumberOptionsDto,
 } from './reports.types';
 import { ReportStatus } from '../domain/enums';
 import { ValidationError } from '../application/errors';
@@ -19,6 +21,7 @@ import { GetReportByIdUseCase } from '../application/use-cases/get-report-by-id.
 import { ListReportsUseCase } from '../application/use-cases/list-reports.use-case';
 import { DeleteClientReportUseCase } from '../application/use-cases/delete-client-report.use-case';
 import { SendReportToWhatChimpUseCase } from '../application/use-cases/send-report-to-whatchimp.use-case';
+import { GetWhatChimpPhoneNumberOptionsUseCase } from '../application/use-cases/get-whatchimp-phone-number-options.use-case';
 
 export class ReportsFacadeImpl implements ReportsFacade {
   constructor(
@@ -28,6 +31,7 @@ export class ReportsFacadeImpl implements ReportsFacade {
     private readonly getReportByIdUseCase: GetReportByIdUseCase,
     private readonly listReportsUseCase: ListReportsUseCase,
     private readonly deleteClientReportUseCase: DeleteClientReportUseCase,
+    private readonly getWhatChimpPhoneNumberOptionsUseCase: GetWhatChimpPhoneNumberOptionsUseCase,
     private readonly sendReportToWhatChimpUseCase: SendReportToWhatChimpUseCase
   ) {}
 
@@ -94,6 +98,17 @@ export class ReportsFacadeImpl implements ReportsFacade {
     });
   }
 
+  async getWhatChimpPhoneNumberOptions(
+    input: GetWhatChimpPhoneNumberOptionsRequestDto
+  ): Promise<WhatChimpPhoneNumberOptionsDto> {
+    const result = await this.getWhatChimpPhoneNumberOptionsUseCase.execute({
+      actorUserId: input.actorUserId,
+      actorUserRole: input.actorUserRole,
+    });
+
+    return this.mapper.toWhatChimpPhoneNumberOptionsDto(result);
+  }
+
   async sendReportToWhatChimp(
     input: SendReportToWhatChimpRequestDto
   ): Promise<SendReportToWhatChimpResponseDto> {
@@ -105,6 +120,7 @@ export class ReportsFacadeImpl implements ReportsFacade {
       recipientSource: input.recipientSource,
       recipientName: input.recipientName,
       messageText: input.messageText,
+      whatchimpPhoneNumberId: input.whatchimpPhoneNumberId,
     });
 
     return this.mapper.toSendReportToWhatChimpResponseDto(result);

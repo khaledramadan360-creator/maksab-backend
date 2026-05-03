@@ -90,12 +90,22 @@ export class ReportsController {
     res.status(204).send();
   });
 
+  getWhatChimpPhoneNumberOptions = asyncHandler(async (req: Request, res: Response) => {
+    const result = await this.facade.getWhatChimpPhoneNumberOptions({
+      actorUserId: req.user!.userId,
+      actorUserRole: req.user!.role,
+    });
+
+    res.status(200).json({ data: result });
+  });
+
   sendReportToWhatChimp = asyncHandler(async (req: Request, res: Response) => {
     const body = req.body as {
       recipientPhone: string;
       recipientSource?: 'whatsapp' | 'mobile' | 'custom' | null;
       recipientName?: string | null;
       messageText?: string | null;
+      whatchimpPhoneNumberId?: string | null;
     };
 
     const result = await this.facade.sendReportToWhatChimp({
@@ -106,6 +116,7 @@ export class ReportsController {
       recipientSource: body.recipientSource,
       recipientName: body.recipientName,
       messageText: body.messageText,
+      whatchimpPhoneNumberId: body.whatchimpPhoneNumberId,
     });
 
     res.status(200).json({

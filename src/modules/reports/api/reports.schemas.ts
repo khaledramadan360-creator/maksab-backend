@@ -113,6 +113,10 @@ export const generateClientReportSchema = z.object({
   body: z.object({}).passthrough().optional(),
 });
 
+export const getWhatChimpPhoneNumberOptionsSchema = z.object({
+  query: z.object({}).passthrough().optional(),
+});
+
 export const sendReportToWhatChimpSchema = z.object({
   params: reportClientIdParamSchema.shape.params,
   body: z.object({
@@ -125,6 +129,10 @@ export const sendReportToWhatChimpSchema = z.object({
       .optional(),
     recipientName: z.preprocess(value => normalizeString(value), z.string().max(255).optional()),
     messageText: z.preprocess(value => normalizeString(value), z.string().max(1024).optional()),
+    whatchimpPhoneNumberId: z.preprocess(
+      value => normalizeString(value),
+      z.string().max(255).optional()
+    ),
   }),
 });
 

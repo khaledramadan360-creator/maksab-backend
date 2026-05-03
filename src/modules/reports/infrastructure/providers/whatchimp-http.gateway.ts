@@ -1,6 +1,7 @@
 import {
   ProviderDispatchResult,
   WhatChimpGateway,
+  WhatChimpPhoneNumberOption,
   WhatChimpSendDocumentCommand,
 } from '../../domain/repositories';
 import { WhatChimpTimeoutError, WhatChimpUnavailableError } from '../../domain/errors';
@@ -16,6 +17,21 @@ interface JsonPostAttempt {
   payload: Record<string, unknown>;
 }
 
+interface RawWhatChimpPhoneNumberOption {
+  id?: unknown;
+  name?: unknown;
+  phoneNumber?: unknown;
+  phone?: unknown;
+  label?: unknown;
+  isDefault?: unknown;
+}
+
+interface ResolvedWhatChimpSenderSelection {
+  requestedValue: string | null;
+  resolvedAccountId: string;
+  resolvedSenderValue: string | null;
+}
+
 export class WhatChimpHttpGateway implements WhatChimpGateway {
   private readonly enabled: boolean;
   private readonly baseUrl: string;
@@ -24,7 +40,8 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
   private readonly apiToken: string;
   private readonly listId: string;
   private readonly reportUrlFieldKey: string;
-  private readonly phoneNumberId: string;
+  private readonly defaultPhoneNumberId: string;
+  private readonly phoneNumberOptions: WhatChimpPhoneNumberOption[];
   private readonly timeoutMs: number;
 
   constructor() {
@@ -34,15 +51,28 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
     this.listId = String(process.env.WHATCHIMP_LIST_ID || '1').trim() || '1';
     this.reportUrlFieldKey =
       String(process.env.WHATCHIMP_REPORT_URL_FIELD_KEY || 'pdf_report_url').trim() || 'pdf_report_url';
-    this.phoneNumberId = String(
+    this.defaultPhoneNumberId = String(
       process.env.WHATCHIMP_PHONE_NUMBER_ID ||
         process.env.WHATCHIMP_NUMBER_ID ||
         process.env.WHATCHIMP_PHONE_ID ||
         ''
     ).trim();
+    this.phoneNumberOptions = this.resolvePhoneNumberOptions();
     this.baseUrl = this.resolveBaseUrl();
     this.subscriberCreateUrl = this.resolveSubscriberCreateUrl(this.baseUrl);
     this.assignCustomFieldsUrl = this.resolveAssignCustomFieldsUrl(this.baseUrl);
+  }
+
+  getPhoneNumberOptions(): WhatChimpPhoneNumberOption[] {
+    return this.phoneNumberOptions.map(option => ({ ...option }));
+  }
+
+  getDefaultPhoneNumberId(): string | null {
+    return this.defaultPhoneNumberId || this.phoneNumberOptions.find(option => option.isDefault)?.id || null;
+  }
+
+  allowsCustomPhoneNumberId(): boolean {
+    return true;
   }
 
   async sendDocument(command: WhatChimpSendDocumentCommand): Promise<ProviderDispatchResult> {
@@ -58,11 +88,15 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
       throw new WhatChimpUnavailableError('WhatChimp endpoints are not configured');
     }
 
-    if (!this.phoneNumberId) {
+    const resolvedSender = this.resolveSenderSelection(command.whatchimpPhoneNumberId);
+    if (!resolvedSender.resolvedAccountId) {
       return {
         accepted: false,
         providerStatusCode: 'CONFIG_MISSING_PHONE_NUMBER_ID',
-        failureReason: 'WHATCHIMP_PHONE_NUMBER_ID is required for WhatChimp custom-fields archiving',
+        failureReason:
+          'A WhatChimp phone number id is required. Configure WHATCHIMP_PHONE_NUMBER_ID or send whatchimpPhoneNumberId.',
+        resolvedWhatChimpAccountId: null,
+        resolvedWhatChimpSenderValue: resolvedSender.resolvedSenderValue,
       };
     }
 
@@ -85,6 +119,7 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
     }
 
     const subscriberSyncStep = await this.syncSubscriber({
+      phoneNumberId: resolvedSender.resolvedAccountId,
       recipientPhone: providerPhone,
       recipientName: command.recipientName ?? null,
     });
@@ -96,11 +131,14 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
           subscriberSyncStep.parsedBody,
           subscriberSyncStep.responseText
         ),
+        resolvedWhatChimpAccountId: resolvedSender.resolvedAccountId,
+        resolvedWhatChimpSenderValue: resolvedSender.resolvedSenderValue,
       };
     }
 
     const subscriberId = this.extractSubscriberId(subscriberSyncStep.parsedBody);
     const assignFieldsStep = await this.assignReportUrlField({
+      phoneNumberId: resolvedSender.resolvedAccountId,
       phone: providerPhone,
       subscriberId,
       reportUrl,
@@ -115,10 +153,13 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
       failureReason: accepted
         ? null
         : this.extractFailureReason(assignFieldsStep.parsedBody, assignFieldsStep.responseText),
+      resolvedWhatChimpAccountId: resolvedSender.resolvedAccountId,
+      resolvedWhatChimpSenderValue: resolvedSender.resolvedSenderValue,
     };
   }
 
   private async syncSubscriber(input: {
+    phoneNumberId: string;
     recipientPhone: string;
     recipientName: string | null;
   }): Promise<JsonPostResult> {
@@ -130,18 +171,18 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
 
     const payloads: Array<Record<string, unknown>> = [];
 
-    if (this.phoneNumberId) {
+    if (input.phoneNumberId) {
       payloads.push({
         apiToken: this.apiToken,
         // This endpoint expects camelCase payload keys.
-        phoneNumberID: this.phoneNumberId,
+        phoneNumberID: input.phoneNumberId,
         phoneNumber: input.recipientPhone,
         name: input.recipientName,
       });
       payloads.push({
         apiToken: this.apiToken,
         // Some accounts accept list_id during create/sync.
-        phoneNumberID: this.phoneNumberId,
+        phoneNumberID: input.phoneNumberId,
         phoneNumber: input.recipientPhone,
         name: input.recipientName,
         list_id: this.listId,
@@ -168,6 +209,7 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
   }
 
   private async assignReportUrlField(input: {
+    phoneNumberId: string;
     phone: string;
     subscriberId: string | null;
     reportUrl: string;
@@ -179,10 +221,10 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
 
     const payloads: Array<Record<string, unknown>> = [];
 
-    if (this.phoneNumberId) {
+    if (input.phoneNumberId) {
       payloads.push({
         apiToken: this.apiToken,
-        phone_number_id: this.phoneNumberId,
+        phone_number_id: input.phoneNumberId,
         phone_number: input.phone,
         custom_fields: JSON.stringify({
           [this.reportUrlFieldKey]: input.reportUrl,
@@ -205,10 +247,12 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
     });
 
     if (input.subscriberId) {
-      payloads.push(this.buildLegacyAssignPayload(input.phone, field, input.subscriberId));
+      payloads.push(
+        this.buildLegacyAssignPayload(input.phone, field, input.phoneNumberId, input.subscriberId)
+      );
     }
 
-    payloads.push(this.buildLegacyAssignPayload(input.phone, field));
+    payloads.push(this.buildLegacyAssignPayload(input.phone, field, input.phoneNumberId));
 
     const urls = this.buildUniqueUrls([
       this.assignCustomFieldsUrl,
@@ -221,6 +265,7 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
   private buildLegacyAssignPayload(
     phone: string,
     field: { key: string; value: string },
+    phoneNumberId: string,
     subscriberId?: string | null
   ): Record<string, unknown> {
     const payload: Record<string, unknown> = {
@@ -230,8 +275,8 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
       custom_fields: [field],
     };
 
-    if (this.phoneNumberId) {
-      payload.phone_number_id = this.phoneNumberId;
+    if (phoneNumberId) {
+      payload.phone_number_id = phoneNumberId;
     }
 
     if (subscriberId) {
@@ -422,6 +467,173 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
     return `${baseUrl}/whatsapp/subscriber/chat/assign-custom-fields`;
   }
 
+  private resolvePhoneNumberOptions(): WhatChimpPhoneNumberOption[] {
+    const raw = String(
+      process.env.WHATCHIMP_PHONE_NUMBER_OPTIONS ||
+        process.env.WHATCHIMP_PHONE_NUMBER_OPTIONS_JSON ||
+        ''
+    ).trim();
+    const parsed = this.parsePhoneNumberOptions(raw);
+    const normalized = this.normalizePhoneNumberOptions(parsed);
+    const defaultId = this.defaultPhoneNumberId;
+
+    if (!normalized.length && defaultId) {
+      return [
+        {
+          id: defaultId,
+          name: 'Default',
+          phoneNumber: null,
+          label: 'Default',
+          isDefault: true,
+        },
+      ];
+    }
+
+    if (!normalized.length) {
+      return [];
+    }
+
+    const resolvedDefaultId =
+      defaultId ||
+      normalized.find(option => option.isDefault)?.id ||
+      normalized[0]?.id ||
+      '';
+
+    const options = normalized.map(option => ({
+      ...option,
+      isDefault: option.id === resolvedDefaultId,
+    }));
+
+    if (resolvedDefaultId && !options.some(option => option.id === resolvedDefaultId)) {
+      options.unshift({
+        id: resolvedDefaultId,
+        name: 'Default',
+        phoneNumber: null,
+        label: 'Default',
+        isDefault: true,
+      });
+    }
+
+    return options;
+  }
+
+  private parsePhoneNumberOptions(value: string): RawWhatChimpPhoneNumberOption[] {
+    if (!value) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private normalizePhoneNumberOptions(
+    options: RawWhatChimpPhoneNumberOption[]
+  ): WhatChimpPhoneNumberOption[] {
+    const normalizedOptions: WhatChimpPhoneNumberOption[] = [];
+    const seen = new Set<string>();
+
+    for (const option of options) {
+      const id = this.normalizePlainString(option?.id);
+      if (!id || seen.has(id)) {
+        continue;
+      }
+
+      const name = this.normalizePlainString(option?.name);
+      const phoneNumber = this.normalizePlainString(option?.phoneNumber ?? option?.phone);
+      const label =
+        this.normalizePlainString(option?.label) ||
+        this.buildOptionLabel(name, phoneNumber) ||
+        id;
+      const isDefault = this.parseLooseBoolean(option?.isDefault);
+
+      seen.add(id);
+      normalizedOptions.push({
+        id,
+        name,
+        phoneNumber,
+        label,
+        isDefault,
+      });
+    }
+
+    return normalizedOptions;
+  }
+
+  private buildOptionLabel(name: string | null, phoneNumber: string | null): string | null {
+    if (name && phoneNumber) {
+      return `${name} (${phoneNumber})`;
+    }
+
+    return name || phoneNumber;
+  }
+
+  private resolveSenderSelection(value?: string | null): ResolvedWhatChimpSenderSelection {
+    const requestedValue = this.normalizePlainString(value);
+    const options = this.phoneNumberOptions;
+
+    if (requestedValue) {
+      const directIdMatch = options.find(option => option.id === requestedValue);
+      if (directIdMatch) {
+        return {
+          requestedValue,
+          resolvedAccountId: directIdMatch.id,
+          resolvedSenderValue: directIdMatch.phoneNumber ?? requestedValue,
+        };
+      }
+
+      const requestedPhone = this.normalizePhoneLookupValue(requestedValue);
+      if (requestedPhone) {
+        const phoneMatch = options.find(option => {
+          return this.normalizePhoneLookupValue(option.phoneNumber) === requestedPhone;
+        });
+        if (phoneMatch) {
+          return {
+            requestedValue,
+            resolvedAccountId: phoneMatch.id,
+            resolvedSenderValue: phoneMatch.phoneNumber ?? requestedValue,
+          };
+        }
+      }
+
+      return {
+        requestedValue,
+        resolvedAccountId: requestedValue,
+        resolvedSenderValue: requestedValue,
+      };
+    }
+
+    const defaultOption =
+      options.find(option => option.isDefault) ||
+      options.find(option => option.id === this.defaultPhoneNumberId) ||
+      null;
+
+    if (defaultOption) {
+      return {
+        requestedValue: null,
+        resolvedAccountId: defaultOption.id,
+        resolvedSenderValue: defaultOption.phoneNumber ?? defaultOption.id,
+      };
+    }
+
+    if (this.defaultPhoneNumberId) {
+      return {
+        requestedValue: null,
+        resolvedAccountId: this.defaultPhoneNumberId,
+        resolvedSenderValue: this.defaultPhoneNumberId,
+      };
+    }
+
+    return {
+      requestedValue: null,
+      resolvedAccountId: '',
+      resolvedSenderValue: null,
+    };
+  }
+
   private extractSubscriberId(body: any): string | null {
     if (!body || typeof body !== 'object') {
       return null;
@@ -540,6 +752,29 @@ export class WhatChimpHttpGateway implements WhatChimpGateway {
   private parsePositiveInt(value: string | undefined, fallback: number): number {
     const parsed = Number.parseInt(String(value || '').trim(), 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  private parseLooseBoolean(value: unknown): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    return this.parseBoolean(typeof value === 'string' ? value : undefined, false);
+  }
+
+  private normalizePlainString(value: unknown): string | null {
+    const normalized = String(value ?? '').trim();
+    return normalized === '' ? null : normalized;
+  }
+
+  private normalizePhoneLookupValue(value: unknown): string | null {
+    const normalized = this.normalizePlainString(value);
+    if (!normalized) {
+      return null;
+    }
+
+    const digitsOnly = normalized.replace(/\D/g, '');
+    return digitsOnly === '' ? null : digitsOnly;
   }
 
   private normalizeProviderPhone(value: string): string {

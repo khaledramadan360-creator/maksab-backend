@@ -115,6 +115,23 @@ export interface DeleteClientReportRequestDto
   reportId: string;
 }
 
+export interface GetWhatChimpPhoneNumberOptionsRequestDto
+  extends RequestActorContext {}
+
+export interface WhatChimpPhoneNumberOptionDto {
+  id: string;
+  name: string | null;
+  phoneNumber: string | null;
+  label: string;
+  isDefault: boolean;
+}
+
+export interface WhatChimpPhoneNumberOptionsDto {
+  options: WhatChimpPhoneNumberOptionDto[];
+  defaultPhoneNumberId: string | null;
+  allowCustomPhoneNumberId: boolean;
+}
+
 export interface SendReportToWhatChimpRequestDto
   extends RequestActorContext {
   clientId: string;
@@ -122,6 +139,7 @@ export interface SendReportToWhatChimpRequestDto
   recipientSource?: RecipientSourceDto;
   recipientName?: string | null;
   messageText?: string | null;
+  whatchimpPhoneNumberId?: string | null;
 }
 
 export interface SendReportToWhatChimpResponseDto {
@@ -136,5 +154,7 @@ export interface SendReportToWhatChimpResponseDto {
   providerMessageId: string | null;
   providerStatusCode: string | null;
   failureReason: string | null;
+  whatchimpPhoneNumberId: string | null;
+  resolvedWhatChimpAccountId: string | null;
   createdAt: string;
 }

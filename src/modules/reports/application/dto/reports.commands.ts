@@ -1,6 +1,10 @@
 import { ClientReport, ReportRenderPayload, TeamReportOverviewItem } from '../../domain/entities';
 import { DeliveryProvider, DeliveryStatus } from '../../domain/enums';
-import { PaginatedResult, ReportsListFilters } from '../../domain/repositories';
+import {
+  PaginatedResult,
+  ReportsListFilters,
+  WhatChimpPhoneNumberOption,
+} from '../../domain/repositories';
 
 export interface ActorContext {
   actorUserId: string;
@@ -37,6 +41,7 @@ export interface SendReportToWhatChimpCommand extends ActorContext {
   recipientSource?: RecipientSource | null;
   recipientName?: string | null;
   messageText?: string | null;
+  whatchimpPhoneNumberId?: string | null;
 }
 
 export interface SendReportToWhatChimpResult {
@@ -51,7 +56,17 @@ export interface SendReportToWhatChimpResult {
   providerMessageId: string | null;
   providerStatusCode: string | null;
   failureReason: string | null;
+  whatchimpPhoneNumberId: string | null;
+  resolvedWhatChimpAccountId: string | null;
   createdAt: Date;
+}
+
+export interface GetWhatChimpPhoneNumberOptionsCommand extends ActorContext {}
+
+export interface GetWhatChimpPhoneNumberOptionsResult {
+  options: WhatChimpPhoneNumberOption[];
+  defaultPhoneNumberId: string | null;
+  allowCustomPhoneNumberId: boolean;
 }
 
 export interface ReportPreviewResult {

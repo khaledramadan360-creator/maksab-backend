@@ -73,6 +73,8 @@ export class WhatChimpDispatchService {
       providerMessageId: result.providerMessageId ?? null,
       providerStatusCode: result.providerStatusCode ?? null,
       failureReason: null,
+      resolvedWhatChimpAccountId: result.resolvedWhatChimpAccountId ?? null,
+      resolvedWhatChimpSenderValue: result.resolvedWhatChimpSenderValue ?? null,
     };
   }
 }
