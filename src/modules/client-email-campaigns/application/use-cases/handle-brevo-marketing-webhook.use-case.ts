@@ -106,12 +106,9 @@ export class HandleBrevoMarketingWebhookUseCase {
     }
 
     const eventAt = this.parseEventDate(payload) || new Date();
-    const eventId = this.readString(payload['id']);
     const linkUrl = this.readString(payload['URL']) || this.readString(payload['url']) || this.readString(payload['link']);
     const reason = this.readString(payload['reason']);
-    const providerEventKey = eventId
-      ? `marketing:${eventType}:${eventId}`
-      : `marketing:${eventType}:${providerCampaignId}:${email}:${eventAt.getTime()}:${linkUrl || ''}:${reason || ''}`;
+    const providerEventKey = `marketing:${eventType}:${providerCampaignId}:${email}:${eventAt.getTime()}:${linkUrl || ''}:${reason || ''}`;
 
     return {
       providerCampaignId,
@@ -158,15 +155,18 @@ export class HandleBrevoMarketingWebhookUseCase {
         patch['deliveredAt'] = recipient.deliveredAt || event.eventAt;
         break;
       case RecipientEventType.Opened:
+        patch['deliveredAt'] = recipient.deliveredAt || event.eventAt;
         patch['firstOpenedAt'] = this.minDate(recipient.firstOpenedAt, event.eventAt);
         patch['lastOpenedAt'] = this.maxDate(recipient.lastOpenedAt, event.eventAt);
         patch['openCount'] = recipient.openCount + 1;
         break;
       case RecipientEventType.ProxyOpened:
+        patch['deliveredAt'] = recipient.deliveredAt || event.eventAt;
         patch['proxyOpenedAt'] = this.maxDate(recipient.proxyOpenedAt, event.eventAt);
         patch['proxyOpenCount'] = recipient.proxyOpenCount + 1;
         break;
       case RecipientEventType.Clicked:
+        patch['deliveredAt'] = recipient.deliveredAt || event.eventAt;
         patch['firstClickedAt'] = this.minDate(recipient.firstClickedAt, event.eventAt);
         patch['lastClickedAt'] = this.maxDate(recipient.lastClickedAt, event.eventAt);
         patch['clickCount'] = recipient.clickCount + 1;
