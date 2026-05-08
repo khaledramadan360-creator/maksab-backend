@@ -20,6 +20,23 @@ export enum RecipientStatus {
   WarningNotSelected = 'warning_not_selected',
 }
 
+export enum RecipientEventSource {
+  Marketing = 'marketing',
+  Inbound = 'inbound',
+}
+
+export enum RecipientEventType {
+  Delivered = 'delivered',
+  Opened = 'opened',
+  ProxyOpened = 'proxy_opened',
+  Clicked = 'clicked',
+  SoftBounced = 'soft_bounced',
+  HardBounced = 'hard_bounced',
+  Unsubscribed = 'unsubscribed',
+  Complained = 'complained',
+  Replied = 'replied',
+}
+
 export enum EligibilityLevel {
   Sendable = 'sendable',
   Warning = 'warning',

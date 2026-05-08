@@ -1,5 +1,6 @@
 import { SearchLeadsUseCase } from '../application/use-cases/search-leads/search-leads.use-case';
 import { PlatformSearchOrchestrator } from '../application/services/platform-search-orchestrator.service';
+import { PlatformSelectionService } from '../application/services/platform-selection.service';
 import { QueryPatternBuilderService } from '../application/services/query-pattern-builder.service';
 import { SearchStopPolicyService } from '../application/services/search-stop-policy.service';
 import { SearchOutputMapper } from '../application/mappers/search-output.mapper';
@@ -147,7 +148,8 @@ export class LeadSearchFacade {
     orchestrator.registerService(SearchPlatform.SNAPCHAT, snapchatService);
 
     const outputMapper = new SearchOutputMapper();
-    this.useCase = new SearchLeadsUseCase(orchestrator, outputMapper, auditRepo);
+    const platformSelection = new PlatformSelectionService();
+    this.useCase = new SearchLeadsUseCase(orchestrator, platformSelection, outputMapper, auditRepo);
   }
 
   /**

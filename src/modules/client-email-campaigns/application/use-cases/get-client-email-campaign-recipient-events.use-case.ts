@@ -4,28 +4,31 @@ import {
   ClientEmailCampaignNotFoundError,
 } from '../../domain/errors';
 import {
+  ClientEmailCampaignRecipientEventRepository,
   ClientEmailCampaignRecipientRepository,
   ClientEmailCampaignRepository,
 } from '../../domain/repositories';
 import { ClientEmailCampaignMapperService } from '../services/client-email-campaign-mapper.service';
 import {
-  ClientEmailCampaignDetailsDto,
+  ClientEmailCampaignRecipientEventsDto,
   RequestActorContext,
 } from '../../public/client-email-campaigns.types';
 
-export class GetClientEmailCampaignDetailsUseCase {
+export class GetClientEmailCampaignRecipientEventsUseCase {
   constructor(
     private readonly campaignRepo: ClientEmailCampaignRepository,
     private readonly recipientRepo: ClientEmailCampaignRecipientRepository,
+    private readonly eventRepo: ClientEmailCampaignRecipientEventRepository,
     private readonly mapper: ClientEmailCampaignMapperService
   ) {}
 
   async execute(input: {
     campaignId: string;
+    recipientId: string;
     page?: number;
     pageSize?: number;
     actor: RequestActorContext;
-  }): Promise<ClientEmailCampaignDetailsDto> {
+  }): Promise<ClientEmailCampaignRecipientEventsDto> {
     if (![Role.Admin, Role.Manager, Role.Employee].includes(input.actor.role as Role)) {
       throw new ClientEmailCampaignAccessDeniedError();
     }
@@ -39,11 +42,15 @@ export class GetClientEmailCampaignDetailsUseCase {
       throw new ClientEmailCampaignAccessDeniedError();
     }
 
+    const recipient = await this.recipientRepo.findById(input.recipientId);
+    if (!recipient || recipient.campaignId !== campaign.id) {
+      throw new ClientEmailCampaignNotFoundError('Client email campaign recipient was not found');
+    }
+
     const page = Math.max(1, Number(input.page ?? 1));
     const pageSize = Math.max(1, Math.min(200, Number(input.pageSize ?? 100)));
-    const recipients = await this.recipientRepo.listByCampaignId(campaign.id, { page, pageSize });
-    const trackingSummary = await this.recipientRepo.getTrackingSummary(campaign.id);
+    const events = await this.eventRepo.listByRecipientId(campaign.id, recipient.id, { page, pageSize });
 
-    return this.mapper.toDetailsDto(campaign, recipients, trackingSummary);
+    return this.mapper.toRecipientEventsDto(recipient, events);
   }
 }

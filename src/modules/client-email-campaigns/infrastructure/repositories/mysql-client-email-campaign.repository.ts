@@ -19,6 +19,7 @@ export class MySQLClientEmailCampaignRepository implements ClientEmailCampaignRe
     const model = await ClientEmailCampaignModel.create({
       id: uuidv4(),
       ...record,
+      replyToEmail: record.replyToEmail ?? null,
       providerCampaignId: null,
       providerListId: null,
       failureReason: null,
@@ -28,6 +29,13 @@ export class MySQLClientEmailCampaignRepository implements ClientEmailCampaignRe
     });
 
     return ClientEmailCampaignMapper.campaignToDomain(model);
+  }
+
+  async updateReplyToEmail(campaignId: string, replyToEmail: string | null): Promise<ClientEmailCampaign> {
+    return this.updateStatus(campaignId, {
+      replyToEmail,
+      updatedAt: new Date(),
+    });
   }
 
   async markSending(campaignId: string): Promise<ClientEmailCampaign> {
@@ -75,6 +83,18 @@ export class MySQLClientEmailCampaignRepository implements ClientEmailCampaignRe
 
   async findById(campaignId: string): Promise<ClientEmailCampaign | null> {
     const model = await ClientEmailCampaignModel.findByPk(campaignId);
+    return model ? ClientEmailCampaignMapper.campaignToDomain(model) : null;
+  }
+
+  async findByProviderCampaignId(providerCampaignId: string): Promise<ClientEmailCampaign | null> {
+    const normalizedId = String(providerCampaignId || '').trim();
+    if (!normalizedId) {
+      return null;
+    }
+
+    const model = await ClientEmailCampaignModel.findOne({
+      where: { providerCampaignId: normalizedId },
+    });
     return model ? ClientEmailCampaignMapper.campaignToDomain(model) : null;
   }
 

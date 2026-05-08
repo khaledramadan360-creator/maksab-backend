@@ -129,7 +129,7 @@ export class BrevoMarketingHttpGateway implements BrevoMarketingGateway {
       ? this.toBrevoTemplate(command.htmlContent, includeCityAttribute)
       : this.textToHtml(command.textContent ?? '', includeCityAttribute);
 
-    const created = await this.request<{ id: number }>('POST', '/emailCampaigns', {
+    const payload = {
       name: command.title,
       sender: {
         name: command.senderName,
@@ -140,9 +140,23 @@ export class BrevoMarketingHttpGateway implements BrevoMarketingGateway {
       recipients: {
         listIds: [listId],
       },
-    });
+      tag: command.internalCampaignId ? `client-email-campaign:${command.internalCampaignId}` : undefined,
+    };
 
-    return Number(created.id);
+    try {
+      const created = await this.request<{ id: number }>('POST', '/emailCampaigns', payload);
+      return Number(created.id);
+    } catch (error: any) {
+      if (!(error instanceof BrevoMarketingRejectedError) || !this.isTagOptionRejected(error)) {
+        throw error;
+      }
+
+      const created = await this.request<{ id: number }>('POST', '/emailCampaigns', {
+        ...payload,
+        tag: undefined,
+      });
+      return Number(created.id);
+    }
   }
 
   private async sendNow(campaignId: number): Promise<void> {
@@ -249,6 +263,11 @@ export class BrevoMarketingHttpGateway implements BrevoMarketingGateway {
     }
 
     return 'Brevo marketing request failed';
+  }
+
+  private isTagOptionRejected(error: BrevoMarketingRejectedError): boolean {
+    const message = String(error.message || '').trim().toLowerCase();
+    return message.includes('tag option') || message.includes('not allowed to avail tag');
   }
 
   private textToHtml(textContent: string, includeCityAttribute: boolean): string {

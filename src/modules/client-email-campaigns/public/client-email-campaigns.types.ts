@@ -3,6 +3,8 @@ import {
   EligibilityLevel,
   EligibilityReason,
   EmailCampaignProvider,
+  RecipientEventSource,
+  RecipientEventType,
   RecipientStatus,
 } from '../domain/enums';
 
@@ -107,9 +109,52 @@ export interface ClientEmailCampaignRecipientDto {
   overrideByUserId: string | null;
   overrideAt: string | null;
   sentAt: string | null;
+  deliveredAt: string | null;
+  firstOpenedAt: string | null;
+  lastOpenedAt: string | null;
+  openCount: number;
+  proxyOpenedAt: string | null;
+  proxyOpenCount: number;
+  firstClickedAt: string | null;
+  lastClickedAt: string | null;
+  clickCount: number;
+  lastClickedUrl: string | null;
+  bouncedAt: string | null;
+  lastBounceType: RecipientEventType.HardBounced | RecipientEventType.SoftBounced | null;
+  unsubscribedAt: string | null;
+  complainedAt: string | null;
+  lastEventAt: string | null;
+  lastEventType: RecipientEventType | null;
   failureReason: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ClientEmailCampaignTrackingSummaryDto {
+  deliveredCount: number;
+  openedCount: number;
+  proxyOpenedCount: number;
+  clickedCount: number;
+  hardBouncedCount: number;
+  softBouncedCount: number;
+  unsubscribedCount: number;
+  complainedCount: number;
+  lastEventAt: string | null;
+}
+
+export interface ClientEmailCampaignRecipientEventDto {
+  id: string;
+  campaignId: string;
+  recipientId: string;
+  clientId: string;
+  source: RecipientEventSource;
+  eventType: RecipientEventType;
+  eventAt: string;
+  linkUrl: string | null;
+  reason: string | null;
+  providerCampaignId: string | null;
+  providerMessageId: string | null;
+  createdAt: string;
 }
 
 export interface ListClientEmailCampaignsQueryDto {
@@ -131,8 +176,19 @@ export interface ListClientEmailCampaignsResponseDto {
 
 export interface ClientEmailCampaignDetailsDto {
   campaign: ClientEmailCampaignDto;
+  trackingSummary: ClientEmailCampaignTrackingSummaryDto;
   recipients: {
     items: ClientEmailCampaignRecipientDto[];
+    total: number;
+    page: number;
+    pageSize: number;
+  };
+}
+
+export interface ClientEmailCampaignRecipientEventsDto {
+  recipient: ClientEmailCampaignRecipientDto;
+  events: {
+    items: ClientEmailCampaignRecipientEventDto[];
     total: number;
     page: number;
     pageSize: number;

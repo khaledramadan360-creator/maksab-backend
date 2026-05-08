@@ -2,6 +2,7 @@ import { SearchRequest, LeadSearchOutput } from '../../../domain/entities';
 import { SupportedSaudiCity } from '../../../domain/enums';
 import { LeadSearchPolicy } from '../../../domain/policy';
 import { PlatformSearchOrchestrator } from '../../services/platform-search-orchestrator.service';
+import { PlatformSelectionService } from '../../services/platform-selection.service';
 import { SearchOutputMapper } from '../../mappers/search-output.mapper';
 import { AuditLogRepository } from '../../../../auth/domain/repositories';
 import { AuditAction } from '../../../../auth/domain/enums';
@@ -9,6 +10,7 @@ import { AuditAction } from '../../../../auth/domain/enums';
 export class SearchLeadsUseCase {
   constructor(
     private readonly orchestrator: PlatformSearchOrchestrator,
+    private readonly platformSelection: PlatformSelectionService,
     private readonly outputMapper: SearchOutputMapper,
     private readonly auditRepo: AuditLogRepository
   ) {}
@@ -24,13 +26,23 @@ export class SearchLeadsUseCase {
       throw new Error('At least one platform must be selected.');
     }
 
+    const originallyRequestedPlatforms = Array.from(new Set(request.platforms));
+    request.platforms = this.platformSelection.select({
+      platforms: request.platforms,
+      requestedResultsCount: request.requestedResultsCount,
+    });
+
     const platformResults = await this.orchestrator.execute(request);
     const output = this.outputMapper.map(request, platformResults);
-    await this.recordAudit(request, output);
+    await this.recordAudit(request, output, originallyRequestedPlatforms);
     return output;
   }
 
-  private async recordAudit(request: SearchRequest, output: LeadSearchOutput): Promise<void> {
+  private async recordAudit(
+    request: SearchRequest,
+    output: LeadSearchOutput,
+    originallyRequestedPlatforms: string[]
+  ): Promise<void> {
     const returnedCountsByPlatform = Object.fromEntries(
       Object.entries(output.platformResults).map(([platform, result]) => [platform, result.returnedCount])
     );
@@ -53,6 +65,8 @@ export class SearchLeadsUseCase {
           keyword: request.keyword,
           saudiCity: request.saudiCity,
           platforms: request.platforms,
+          originallyRequestedPlatforms,
+          platformSelectionReduced: request.platforms.length < originallyRequestedPlatforms.length,
           requestedResultsCount: request.requestedResultsCount,
           returnedCountsByPlatform,
           totalReturnedCount,

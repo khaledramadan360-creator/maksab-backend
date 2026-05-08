@@ -19,7 +19,8 @@ import { ResultType, SearchPlatform } from '../../domain/enums';
 import {
   CandidateBuckets,
   addBucketCandidatesToPool,
-  buildBestCandidatesFromPools
+  buildBestCandidatesFromPools,
+  isRecoverablePlatformFilterMiss
 } from '../../application/services/candidate-selection.service';
 import { SearchStopPolicyService } from '../../application/services/search-stop-policy.service';
 
@@ -201,12 +202,16 @@ export class TiktokSearchService {
 
       const normalizedRaw = this.toRawSearchResult(candidate);
 
-      if (!this.platformUrlFilter.isCandidateValid(normalizedRaw, filterContext).isValid) {
-        continue;
-      }
-
+      const platformValidation = this.platformUrlFilter.isCandidateValid(normalizedRaw, filterContext);
       const clientValid = this.clientOnlyFilter.isCandidateValid(normalizedRaw, filterContext).isValid;
       const relevanceValid = this.relevanceFilter.isCandidateValid(normalizedRaw, filterContext).isValid;
+
+      if (!platformValidation.isValid) {
+        if (isRecoverablePlatformFilterMiss(platformValidation.reason) && (clientValid || relevanceValid)) {
+          fallbackAccepted.push(candidate);
+        }
+        continue;
+      }
 
       if (clientValid && relevanceValid) {
         strictAccepted.push(candidate);

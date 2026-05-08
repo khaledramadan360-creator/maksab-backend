@@ -1,12 +1,17 @@
 import {
   ClientEmailCampaign,
+  ClientEmailCampaignRecipientEvent,
+  ClientEmailCampaignTrackingSummary,
   ClientEmailCampaignRecipient,
   RecipientPreview,
 } from '../../domain/entities';
 import {
   ClientEmailCampaignDetailsDto,
   ClientEmailCampaignDto,
+  ClientEmailCampaignRecipientEventDto,
+  ClientEmailCampaignRecipientEventsDto,
   ClientEmailCampaignRecipientDto,
+  ClientEmailCampaignTrackingSummaryDto,
   PreviewClientEmailCampaignResponseDto,
   RecipientPreviewDto,
 } from '../../public/client-email-campaigns.types';
@@ -79,23 +84,87 @@ export class ClientEmailCampaignMapperService {
       overrideByUserId: recipient.overrideByUserId,
       overrideAt: recipient.overrideAt?.toISOString() ?? null,
       sentAt: recipient.sentAt?.toISOString() ?? null,
+      deliveredAt: recipient.deliveredAt?.toISOString() ?? null,
+      firstOpenedAt: recipient.firstOpenedAt?.toISOString() ?? null,
+      lastOpenedAt: recipient.lastOpenedAt?.toISOString() ?? null,
+      openCount: recipient.openCount,
+      proxyOpenedAt: recipient.proxyOpenedAt?.toISOString() ?? null,
+      proxyOpenCount: recipient.proxyOpenCount,
+      firstClickedAt: recipient.firstClickedAt?.toISOString() ?? null,
+      lastClickedAt: recipient.lastClickedAt?.toISOString() ?? null,
+      clickCount: recipient.clickCount,
+      lastClickedUrl: recipient.lastClickedUrl,
+      bouncedAt: recipient.bouncedAt?.toISOString() ?? null,
+      lastBounceType: recipient.lastBounceType,
+      unsubscribedAt: recipient.unsubscribedAt?.toISOString() ?? null,
+      complainedAt: recipient.complainedAt?.toISOString() ?? null,
+      lastEventAt: recipient.lastEventType === 'replied' ? null : recipient.lastEventAt?.toISOString() ?? null,
+      lastEventType: recipient.lastEventType === 'replied' ? null : recipient.lastEventType,
       failureReason: recipient.failureReason,
       createdAt: recipient.createdAt.toISOString(),
       updatedAt: recipient.updatedAt.toISOString(),
     };
   }
 
+  toTrackingSummaryDto(summary: ClientEmailCampaignTrackingSummary): ClientEmailCampaignTrackingSummaryDto {
+    return {
+      deliveredCount: summary.deliveredCount,
+      openedCount: summary.openedCount,
+      proxyOpenedCount: summary.proxyOpenedCount,
+      clickedCount: summary.clickedCount,
+      hardBouncedCount: summary.hardBouncedCount,
+      softBouncedCount: summary.softBouncedCount,
+      unsubscribedCount: summary.unsubscribedCount,
+      complainedCount: summary.complainedCount,
+      lastEventAt: summary.lastEventAt?.toISOString() ?? null,
+    };
+  }
+
+  toRecipientEventDto(event: ClientEmailCampaignRecipientEvent): ClientEmailCampaignRecipientEventDto {
+    return {
+      id: event.id,
+      campaignId: event.campaignId,
+      recipientId: event.recipientId,
+      clientId: event.clientId,
+      source: event.source,
+      eventType: event.eventType,
+      eventAt: event.eventAt.toISOString(),
+      linkUrl: event.linkUrl,
+      reason: event.reason,
+      providerCampaignId: event.providerCampaignId,
+      providerMessageId: event.providerMessageId,
+      createdAt: event.createdAt.toISOString(),
+    };
+  }
+
   toDetailsDto(
     campaign: ClientEmailCampaign,
-    recipients: PaginatedResult<ClientEmailCampaignRecipient>
+    recipients: PaginatedResult<ClientEmailCampaignRecipient>,
+    trackingSummary: ClientEmailCampaignTrackingSummary
   ): ClientEmailCampaignDetailsDto {
     return {
       campaign: this.toCampaignDto(campaign),
+      trackingSummary: this.toTrackingSummaryDto(trackingSummary),
       recipients: {
         items: recipients.items.map(item => this.toRecipientDto(item)),
         total: recipients.total,
         page: recipients.page,
         pageSize: recipients.pageSize,
+      },
+    };
+  }
+
+  toRecipientEventsDto(
+    recipient: ClientEmailCampaignRecipient,
+    events: PaginatedResult<ClientEmailCampaignRecipientEvent>
+  ): ClientEmailCampaignRecipientEventsDto {
+    return {
+      recipient: this.toRecipientDto(recipient),
+      events: {
+        items: events.items.map(item => this.toRecipientEventDto(item)),
+        total: events.total,
+        page: events.page,
+        pageSize: events.pageSize,
       },
     };
   }

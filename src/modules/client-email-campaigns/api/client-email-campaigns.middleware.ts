@@ -66,3 +66,35 @@ export const createClientEmailCampaignsAuthMiddleware = (jwtService: JwtService)
     }
   };
 };
+
+export const createClientEmailCampaignsWebhookAuthMiddleware = () => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const configuredSecret = (
+      process.env.CLIENT_EMAIL_CAMPAIGNS_WEBHOOK_SECRET ||
+      process.env.BREVO_WEBHOOK_SECRET ||
+      ''
+    ).trim();
+
+    if (!configuredSecret) {
+      return next();
+    }
+
+    const queryToken = typeof req.query.token === 'string' ? req.query.token.trim() : '';
+    const headerToken = typeof req.headers['x-brevo-webhook-secret'] === 'string'
+      ? req.headers['x-brevo-webhook-secret'].trim()
+      : '';
+    const providedToken = queryToken || headerToken;
+
+    if (providedToken !== configuredSecret) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'WEBHOOK_UNAUTHORIZED',
+          message: 'Invalid webhook token',
+        },
+      });
+    }
+
+    return next();
+  };
+};

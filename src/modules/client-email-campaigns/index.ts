@@ -1,12 +1,17 @@
 import { Router } from 'express';
 import { JwtService } from '../auth/application/services/jwt.interface';
 import { ClientEmailCampaignsController } from './api/client-email-campaigns.controller';
-import { createClientEmailCampaignsAuthMiddleware } from './api/client-email-campaigns.middleware';
+import {
+  createClientEmailCampaignsAuthMiddleware,
+  createClientEmailCampaignsWebhookAuthMiddleware,
+} from './api/client-email-campaigns.middleware';
 import { createClientEmailCampaignsRoutes } from './api/client-email-campaigns.routes';
 import { clientEmailCampaignsErrorMiddleware } from './api/client-email-campaigns.error-mapper';
 import { ClientEmailCampaignInputService } from './application/services/client-email-campaign-input.service';
 import { ClientEmailCampaignMapperService } from './application/services/client-email-campaign-mapper.service';
 import { GetClientEmailCampaignDetailsUseCase } from './application/use-cases/get-client-email-campaign-details.use-case';
+import { GetClientEmailCampaignRecipientEventsUseCase } from './application/use-cases/get-client-email-campaign-recipient-events.use-case';
+import { HandleBrevoMarketingWebhookUseCase } from './application/use-cases/handle-brevo-marketing-webhook.use-case';
 import { ListClientEmailCampaignsUseCase } from './application/use-cases/list-client-email-campaigns.use-case';
 import { PreviewClientEmailCampaignUseCase } from './application/use-cases/preview-client-email-campaign.use-case';
 import { SendClientEmailCampaignUseCase } from './application/use-cases/send-client-email-campaign.use-case';
@@ -19,6 +24,7 @@ import {
 import { BrevoMarketingHttpGateway } from './infrastructure/providers/brevo-marketing.gateway';
 import { MySQLClientCampaignClientRepository } from './infrastructure/repositories/mysql-client-campaign-client.repository';
 import { MySQLClientEmailCampaignAuditLogRepository } from './infrastructure/repositories/mysql-client-email-campaign-audit-log.repository';
+import { MySQLClientEmailCampaignRecipientEventRepository } from './infrastructure/repositories/mysql-client-email-campaign-recipient-event.repository';
 import { MySQLClientEmailCampaignRecipientRepository } from './infrastructure/repositories/mysql-client-email-campaign-recipient.repository';
 import { MySQLClientEmailCampaignRepository } from './infrastructure/repositories/mysql-client-email-campaign.repository';
 import { MySQLEmailSuppressionRepository } from './infrastructure/repositories/mysql-email-suppression.repository';
@@ -30,6 +36,7 @@ export function initClientEmailCampaignsModule(jwtService: JwtService): {
   const clientRepo = new MySQLClientCampaignClientRepository();
   const campaignRepo = new MySQLClientEmailCampaignRepository();
   const recipientRepo = new MySQLClientEmailCampaignRecipientRepository();
+  const recipientEventRepo = new MySQLClientEmailCampaignRecipientEventRepository();
   const suppressionRepo = new MySQLEmailSuppressionRepository();
   const auditRepo = new MySQLClientEmailCampaignAuditLogRepository();
 
@@ -64,15 +71,30 @@ export function initClientEmailCampaignsModule(jwtService: JwtService): {
   );
   const listUseCase = new ListClientEmailCampaignsUseCase(campaignRepo, mapper);
   const detailsUseCase = new GetClientEmailCampaignDetailsUseCase(campaignRepo, recipientRepo, mapper);
+  const recipientEventsUseCase = new GetClientEmailCampaignRecipientEventsUseCase(
+    campaignRepo,
+    recipientRepo,
+    recipientEventRepo,
+    mapper
+  );
+  const marketingWebhookUseCase = new HandleBrevoMarketingWebhookUseCase(
+    campaignRepo,
+    recipientRepo,
+    recipientEventRepo,
+    suppressionRepo
+  );
 
   const controller = new ClientEmailCampaignsController(
     previewUseCase,
     sendUseCase,
     listUseCase,
-    detailsUseCase
+    detailsUseCase,
+    recipientEventsUseCase,
+    marketingWebhookUseCase
   );
   const authenticate = createClientEmailCampaignsAuthMiddleware(jwtService);
-  const router = createClientEmailCampaignsRoutes(controller, authenticate);
+  const authenticateWebhook = createClientEmailCampaignsWebhookAuthMiddleware();
+  const router = createClientEmailCampaignsRoutes(controller, authenticate, authenticateWebhook);
 
   return {
     router,
@@ -85,6 +107,9 @@ export type {
   ClientEmailCampaignDetailsDto,
   ClientEmailCampaignDto,
   ClientEmailCampaignRecipientDto,
+  ClientEmailCampaignRecipientEventDto,
+  ClientEmailCampaignRecipientEventsDto,
+  ClientEmailCampaignTrackingSummaryDto,
   ListClientEmailCampaignsQueryDto,
   ListClientEmailCampaignsResponseDto,
   PreviewClientEmailCampaignRequestDto,

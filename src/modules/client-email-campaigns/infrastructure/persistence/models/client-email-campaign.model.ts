@@ -9,6 +9,7 @@ interface ClientEmailCampaignAttributes {
   textContent: string | null;
   senderName: string;
   senderEmail: string;
+  replyToEmail: string | null;
   status: string;
   provider: string;
   providerCampaignId: string | null;
@@ -43,6 +44,7 @@ export class ClientEmailCampaignModel
   declare textContent: string | null;
   declare senderName: string;
   declare senderEmail: string;
+  declare replyToEmail: string | null;
   declare status: string;
   declare provider: string;
   declare providerCampaignId: string | null;
@@ -71,6 +73,7 @@ ClientEmailCampaignModel.init(
     textContent: { type: DataTypes.TEXT, allowNull: true, defaultValue: null },
     senderName: { type: DataTypes.STRING(255), allowNull: false },
     senderEmail: { type: DataTypes.STRING(255), allowNull: false },
+    replyToEmail: { type: DataTypes.STRING(255), allowNull: true, defaultValue: null },
     status: { type: DataTypes.STRING(50), allowNull: false, defaultValue: 'draft' },
     provider: { type: DataTypes.STRING(50), allowNull: false, defaultValue: 'brevo' },
     providerCampaignId: { type: DataTypes.STRING(255), allowNull: true, defaultValue: null },
@@ -96,6 +99,7 @@ ClientEmailCampaignModel.init(
     timestamps: true,
     indexes: [
       { name: 'client_email_campaigns_status_idx', fields: ['status'] },
+      { name: 'client_email_campaigns_provider_campaign_id_idx', fields: ['provider_campaign_id'] },
       { name: 'client_email_campaigns_requested_by_user_id_idx', fields: ['requested_by_user_id'] },
       { name: 'client_email_campaigns_created_at_idx', fields: ['created_at'] },
     ],

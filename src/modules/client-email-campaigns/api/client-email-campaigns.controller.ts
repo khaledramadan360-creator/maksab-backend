@@ -4,13 +4,17 @@ import { PreviewClientEmailCampaignUseCase } from '../application/use-cases/prev
 import { SendClientEmailCampaignUseCase } from '../application/use-cases/send-client-email-campaign.use-case';
 import { ListClientEmailCampaignsUseCase } from '../application/use-cases/list-client-email-campaigns.use-case';
 import { GetClientEmailCampaignDetailsUseCase } from '../application/use-cases/get-client-email-campaign-details.use-case';
+import { GetClientEmailCampaignRecipientEventsUseCase } from '../application/use-cases/get-client-email-campaign-recipient-events.use-case';
+import { HandleBrevoMarketingWebhookUseCase } from '../application/use-cases/handle-brevo-marketing-webhook.use-case';
 
 export class ClientEmailCampaignsController {
   constructor(
     private readonly previewUseCase: PreviewClientEmailCampaignUseCase,
     private readonly sendUseCase: SendClientEmailCampaignUseCase,
     private readonly listUseCase: ListClientEmailCampaignsUseCase,
-    private readonly detailsUseCase: GetClientEmailCampaignDetailsUseCase
+    private readonly detailsUseCase: GetClientEmailCampaignDetailsUseCase,
+    private readonly recipientEventsUseCase: GetClientEmailCampaignRecipientEventsUseCase,
+    private readonly marketingWebhookUseCase: HandleBrevoMarketingWebhookUseCase
   ) {}
 
   preview = asyncHandler(async (req: Request, res: Response) => {
@@ -62,5 +66,25 @@ export class ClientEmailCampaignsController {
     });
 
     res.json({ success: true, data: result });
+  });
+
+  recipientEvents = asyncHandler(async (req: Request, res: Response) => {
+    const result = await this.recipientEventsUseCase.execute({
+      campaignId: req.params.campaignId,
+      recipientId: req.params.recipientId,
+      page: Number(req.query.page ?? 1),
+      pageSize: Number(req.query.pageSize ?? 50),
+      actor: {
+        userId: req.user!.userId,
+        role: req.user!.role,
+      },
+    });
+
+    res.json({ success: true, data: result });
+  });
+
+  marketingWebhook = asyncHandler(async (req: Request, res: Response) => {
+    await this.marketingWebhookUseCase.execute({ payload: req.body });
+    res.status(202).json({ success: true });
   });
 }

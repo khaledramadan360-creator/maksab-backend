@@ -3,12 +3,16 @@ import {
   ClientEmailCampaignAuditAction,
   EligibilityReason,
   EmailCampaignProvider,
+  RecipientEventSource,
+  RecipientEventType,
   RecipientStatus,
   SuppressionLevel,
 } from './enums';
 import {
   CampaignClient,
   ClientEmailCampaign,
+  ClientEmailCampaignRecipientEvent,
+  ClientEmailCampaignTrackingSummary,
   ClientEmailCampaignRecipient,
   EmailSuppression,
 } from './entities';
@@ -32,6 +36,7 @@ export interface ClientEmailCampaignCreateRecord {
   textContent: string | null;
   senderName: string;
   senderEmail: string;
+  replyToEmail?: string | null;
   status: CampaignStatus;
   provider: EmailCampaignProvider;
   totalSelected: number;
@@ -63,11 +68,13 @@ export interface ClientEmailCampaignListFilters {
 
 export interface ClientEmailCampaignRepository {
   create(record: ClientEmailCampaignCreateRecord): Promise<ClientEmailCampaign>;
+  updateReplyToEmail(campaignId: string, replyToEmail: string | null): Promise<ClientEmailCampaign>;
   markSending(campaignId: string): Promise<ClientEmailCampaign>;
   markSent(campaignId: string, result: CampaignSendResultPatch): Promise<ClientEmailCampaign>;
   markPartiallyFailed(campaignId: string, result: CampaignSendResultPatch): Promise<ClientEmailCampaign>;
   markFailed(campaignId: string, reason: string): Promise<ClientEmailCampaign>;
   findById(campaignId: string): Promise<ClientEmailCampaign | null>;
+  findByProviderCampaignId(providerCampaignId: string): Promise<ClientEmailCampaign | null>;
   list(
     filters: ClientEmailCampaignListFilters,
     pagination: PaginationParams
@@ -96,14 +103,73 @@ export interface RecipientProviderData {
   failureReason?: string | null;
 }
 
+export interface RecipientTrackingUpdatePatch {
+  deliveredAt?: Date | null;
+  firstOpenedAt?: Date | null;
+  lastOpenedAt?: Date | null;
+  openCount?: number;
+  proxyOpenedAt?: Date | null;
+  proxyOpenCount?: number;
+  firstClickedAt?: Date | null;
+  lastClickedAt?: Date | null;
+  clickCount?: number;
+  lastClickedUrl?: string | null;
+  repliedAt?: Date | null;
+  replyCount?: number;
+  latestReplyText?: string | null;
+  latestReplySubject?: string | null;
+  latestReplyFromEmail?: string | null;
+  bouncedAt?: Date | null;
+  lastBounceType?: RecipientEventType.HardBounced | RecipientEventType.SoftBounced | null;
+  unsubscribedAt?: Date | null;
+  complainedAt?: Date | null;
+  lastEventAt?: Date | null;
+  lastEventType?: RecipientEventType | null;
+  failureReason?: string | null;
+}
+
 export interface ClientEmailCampaignRecipientRepository {
   bulkCreate(records: ClientEmailCampaignRecipientCreateRecord[]): Promise<ClientEmailCampaignRecipient[]>;
   markSent(recipientId: string, providerData?: RecipientProviderData): Promise<void>;
   markFailed(recipientId: string, reason: string, providerData?: RecipientProviderData): Promise<void>;
+  findById(recipientId: string): Promise<ClientEmailCampaignRecipient | null>;
+  findByCampaignAndEmail(campaignId: string, email: string): Promise<ClientEmailCampaignRecipient | null>;
+  applyTrackingUpdate(recipientId: string, patch: RecipientTrackingUpdatePatch): Promise<ClientEmailCampaignRecipient>;
+  getTrackingSummary(campaignId: string): Promise<ClientEmailCampaignTrackingSummary>;
   listByCampaignId(
     campaignId: string,
     pagination: PaginationParams
   ): Promise<PaginatedResult<ClientEmailCampaignRecipient>>;
+}
+
+export interface ClientEmailCampaignRecipientEventCreateRecord {
+  campaignId: string;
+  recipientId: string;
+  clientId: string;
+  provider: EmailCampaignProvider;
+  source: RecipientEventSource;
+  providerEventKey: string;
+  providerCampaignId?: string | null;
+  providerMessageId?: string | null;
+  eventType: RecipientEventType;
+  eventAt: Date;
+  linkUrl?: string | null;
+  reason?: string | null;
+  replyText?: string | null;
+  replySubject?: string | null;
+  replyFromEmail?: string | null;
+  payload?: string | null;
+}
+
+export interface ClientEmailCampaignRecipientEventRepository {
+  createIfAbsent(
+    record: ClientEmailCampaignRecipientEventCreateRecord
+  ): Promise<{ event: ClientEmailCampaignRecipientEvent; created: boolean }>;
+  listByRecipientId(
+    campaignId: string,
+    recipientId: string,
+    pagination: PaginationParams
+  ): Promise<PaginatedResult<ClientEmailCampaignRecipientEvent>>;
 }
 
 export interface EmailSuppressionRepository {
@@ -127,12 +193,14 @@ export interface BrevoMarketingRecipient {
 }
 
 export interface BrevoMarketingSendCommand {
+  internalCampaignId?: string;
   title: string;
   subject: string;
   htmlContent?: string | null;
   textContent?: string | null;
   senderName: string;
   senderEmail: string;
+  replyToEmail?: string | null;
   recipients: BrevoMarketingRecipient[];
 }
 

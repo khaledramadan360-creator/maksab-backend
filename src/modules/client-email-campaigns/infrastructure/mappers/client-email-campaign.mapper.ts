@@ -3,16 +3,20 @@ import {
   EligibilityLevel,
   EligibilityReason,
   EmailCampaignProvider,
+  RecipientEventSource,
+  RecipientEventType,
   RecipientStatus,
   SuppressionLevel,
   SuppressionSource,
 } from '../../domain/enums';
 import {
   ClientEmailCampaign,
+  ClientEmailCampaignRecipientEvent,
   ClientEmailCampaignRecipient,
   EmailSuppression,
 } from '../../domain/entities';
 import { ClientEmailCampaignModel } from '../persistence/models/client-email-campaign.model';
+import { ClientEmailCampaignRecipientEventModel } from '../persistence/models/client-email-campaign-recipient-event.model';
 import { ClientEmailCampaignRecipientModel } from '../persistence/models/client-email-campaign-recipient.model';
 import { EmailSuppressionModel } from '../persistence/models/email-suppression.model';
 
@@ -66,6 +70,51 @@ export class ClientEmailCampaignMapper {
       overrideByUserId: model.overrideByUserId,
       overrideAt: model.overrideAt,
       sentAt: model.sentAt,
+      deliveredAt: model.deliveredAt,
+      firstOpenedAt: model.firstOpenedAt,
+      lastOpenedAt: model.lastOpenedAt,
+      openCount: model.openCount,
+      proxyOpenedAt: model.proxyOpenedAt,
+      proxyOpenCount: model.proxyOpenCount,
+      firstClickedAt: model.firstClickedAt,
+      lastClickedAt: model.lastClickedAt,
+      clickCount: model.clickCount,
+      lastClickedUrl: model.lastClickedUrl,
+      repliedAt: model.repliedAt,
+      replyCount: model.replyCount,
+      latestReplyText: model.latestReplyText,
+      latestReplySubject: model.latestReplySubject,
+      latestReplyFromEmail: model.latestReplyFromEmail,
+      bouncedAt: model.bouncedAt,
+      lastBounceType: model.lastBounceType as RecipientEventType.HardBounced | RecipientEventType.SoftBounced | null,
+      unsubscribedAt: model.unsubscribedAt,
+      complainedAt: model.complainedAt,
+      lastEventAt: model.lastEventAt,
+      lastEventType: model.lastEventType as RecipientEventType | null,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+    };
+  }
+
+  static recipientEventToDomain(model: ClientEmailCampaignRecipientEventModel): ClientEmailCampaignRecipientEvent {
+    return {
+      id: model.id,
+      campaignId: model.campaignId,
+      recipientId: model.recipientId,
+      clientId: model.clientId,
+      provider: model.provider as EmailCampaignProvider,
+      source: model.source as RecipientEventSource,
+      providerEventKey: model.providerEventKey,
+      providerCampaignId: model.providerCampaignId,
+      providerMessageId: model.providerMessageId,
+      eventType: model.eventType as RecipientEventType,
+      eventAt: model.eventAt,
+      linkUrl: model.linkUrl,
+      reason: model.reason,
+      replyText: model.replyText,
+      replySubject: model.replySubject,
+      replyFromEmail: model.replyFromEmail,
+      payload: model.payload,
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
     };

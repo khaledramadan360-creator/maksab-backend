@@ -170,6 +170,7 @@ export class SendClientEmailCampaignUseCase {
 
     try {
       const result = await this.brevoGateway.sendCampaign({
+        internalCampaignId: campaign.id,
         title: normalized.title,
         subject: normalized.subject,
         htmlContent: normalized.htmlContent,

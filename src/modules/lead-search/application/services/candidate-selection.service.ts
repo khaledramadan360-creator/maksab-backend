@@ -1,10 +1,19 @@
 import { CandidateResult } from '../../domain/entities';
+import { RejectedResultReason } from '../../domain/enums';
 import { RankingContext, ResultRanker } from '../../domain/repositories';
 
 export interface CandidateBuckets {
   strictAccepted: CandidateResult[];
   relaxedAccepted: CandidateResult[];
   fallbackAccepted: CandidateResult[];
+}
+
+export function isRecoverablePlatformFilterMiss(reason?: RejectedResultReason): boolean {
+  return reason === RejectedResultReason.CONTENT_PAGE ||
+    reason === RejectedResultReason.ARTICLE_PAGE ||
+    reason === RejectedResultReason.VIDEO_PAGE ||
+    reason === RejectedResultReason.POST_PAGE ||
+    reason === RejectedResultReason.NEWS_PAGE;
 }
 
 interface AddBucketCandidatesToPoolInput {
