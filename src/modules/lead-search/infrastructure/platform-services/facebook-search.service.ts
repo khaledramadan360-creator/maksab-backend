@@ -16,6 +16,7 @@ import {
   SearchRequest
 } from '../../domain/entities';
 import { ResultType, SearchPlatform } from '../../domain/enums';
+import { extractSaudiLocation } from '../utils/saudi-location-extractor';
 import {
   CandidateBuckets,
   addBucketCandidatesToPool,
@@ -282,18 +283,7 @@ export class FacebookSearchService {
   }
 
   private extractLocation(text: string): string {
-    const normalizedText = text.toLowerCase();
-    const cityPatterns = ['riyadh', 'jeddah', 'dammam', 'khobar', 'makkah', 'madinah', 'saudi arabia', 'ksa'];
-
-    for (const cityPattern of cityPatterns) {
-      if (normalizedText.includes(cityPattern)) {
-        return cityPattern === 'saudi arabia' || cityPattern === 'ksa'
-          ? 'Saudi Arabia'
-          : `${cityPattern.charAt(0).toUpperCase()}${cityPattern.slice(1)}, Saudi Arabia`;
-      }
-    }
-
-    return '';
+    return extractSaudiLocation(text);
   }
 
   private matchesAny(value: string, patterns: string[]): boolean {

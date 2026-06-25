@@ -168,8 +168,7 @@ export class BrightDataSerpProvider implements SearchProvider {
       await this.delay(pollIntervalMs);
 
       const resultParams = new URLSearchParams({
-        response_id: responseId,
-        zone: this.zone
+        response_id: responseId
       });
 
       const resultResponse = await this.fetchWithTimeout(`https://api.brightdata.com/serp/get_result?${resultParams.toString()}`, {
