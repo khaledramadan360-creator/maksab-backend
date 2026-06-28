@@ -1,6 +1,6 @@
 import { ResultRanker, RankingContext } from '../../domain/repositories';
 import { CandidateResult } from '../../domain/entities';
-import { ResultType } from '../../domain/enums';
+import { ResultType, SupportedSaudiCity } from '../../domain/enums';
 
 export interface ScoreBreakdown {
   keywordMatchScore: number;       // Max 45
@@ -80,6 +80,27 @@ export class DefaultRelevanceRanker implements ResultRanker {
   private calculateCityMatchScore(result: CandidateResult, context: RankingContext): number {
     if (!context.saudiCity) return 0;
 
+    if (context.saudiCity === SupportedSaudiCity.ALL) {
+      const hasExtractedCity = result.extractedLocation && result.extractedLocation !== 'Saudi Arabia';
+      if (hasExtractedCity) return 20;
+
+      const strongLocationFields = this.normalizeText(
+        `${result.title} ${result.extractedNameOrLabel} ${result.extractedLocation}`
+      );
+      const snippet = this.normalizeText(result.snippet || '');
+      const allText = `${strongLocationFields} ${snippet}`;
+
+      if (
+        allText.includes('saudi') ||
+        allText.includes('ksa') ||
+        allText.includes('السعوديه') ||
+        allText.includes('السعودية')
+      ) {
+        return 10;
+      }
+      return 0;
+    }
+
     const city = this.normalizeText(context.saudiCity);
     const strongLocationFields = this.normalizeText(
       `${result.title} ${result.extractedNameOrLabel} ${result.extractedLocation}`
@@ -90,7 +111,12 @@ export class DefaultRelevanceRanker implements ResultRanker {
     if (snippet.includes(city)) return 15;
 
     const allText = `${strongLocationFields} ${snippet}`;
-    if (allText.includes('saudi') || allText.includes('ksa') || allText.includes('السعوديه')) {
+    if (
+      allText.includes('saudi') ||
+      allText.includes('ksa') ||
+      allText.includes('السعوديه') ||
+      allText.includes('السعودية')
+    ) {
       return 10;
     }
 

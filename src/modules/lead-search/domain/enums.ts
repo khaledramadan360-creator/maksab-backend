@@ -9,6 +9,7 @@ export enum SearchPlatform {
 }
 
 export enum SupportedSaudiCity {
+  ALL = 'all',
   RIYADH = 'Riyadh',
   JEDDAH = 'Jeddah',
   MAKKAH = 'Makkah',

@@ -25,6 +25,7 @@ import { ChangeClientStatusUseCase } from './application/use-cases/change-client
 import { ChangeClientOwnerUseCase } from './application/use-cases/change-client-owner.use-case';
 import { GetTeamClientsOverviewUseCase } from './application/use-cases/get-team-clients-overview.use-case';
 import { ListClientOwnerOptionsUseCase } from './application/use-cases/list-client-owner-options.use-case';
+import { BulkCreateClientsUseCase } from './application/use-cases/bulk-create-clients.use-case';
 
 export function initClientsModule(jwtService: JwtService): {
   router: Router;
@@ -52,6 +53,15 @@ export function initClientsModule(jwtService: JwtService): {
     linkPolicy
   );
   const createClientFromSearch = new CreateClientFromSearchUseCase(createClient, searchResultMapper);
+  const bulkCreateClients = new BulkCreateClientsUseCase(
+    clientsRepo,
+    usersLookupRepo,
+    auditRepo,
+    duplicateService,
+    ownershipService,
+    statusPolicy,
+    linkPolicy
+  );
   const updateClient = new UpdateClientUseCase(clientsRepo, auditRepo, ownershipService, linkPolicy);
   const deleteClient = new DeleteClientUseCase(clientsRepo, auditRepo, ownershipService);
   const getClientById = new GetClientByIdUseCase(clientsRepo, ownershipService);
@@ -72,7 +82,8 @@ export function initClientsModule(jwtService: JwtService): {
     listClientOwnerOptions,
     changeClientStatus,
     changeClientOwner,
-    getTeamOverview
+    getTeamOverview,
+    bulkCreateClients
   );
 
   const controller = new ClientsController(facade);
@@ -106,4 +117,10 @@ export type {
   GetTeamClientsOverviewRequestDto,
   ClientOwnerOptionDto,
   CreateClientResultDto,
+  BulkClientItem,
+  BulkCreateClientsRequestDto,
+  BulkClientSuccessItem,
+  BulkClientFailureItem,
+  BulkCreateClientsResponseDto,
 } from './public/clients.types';
+

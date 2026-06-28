@@ -186,3 +186,55 @@ export interface CreateClientResultDto {
 }
 
 export interface GetTeamClientsOverviewRequestDto extends RequestActorContext {}
+
+export interface BulkClientItem {
+  name: string;
+  clientType: PublicClientType;
+  mobile?: string | null;
+  whatsapp?: string | null;
+  email?: string | null;
+  saudiCity: string;
+  notes?: string | null;
+  primaryPlatform: PublicClientPlatform;
+  sourceModule?: PublicClientSourceModule;
+  sourcePlatform: PublicClientPlatform;
+  sourceUrl: string;
+  links?: Partial<ClientLinksDto>;
+}
+
+export interface BulkCreateClientsRequestDto extends RequestActorContext {
+  clients: BulkClientItem[];
+  forceCreateIfDuplicate?: boolean;
+}
+
+export interface BulkClientSuccessItem {
+  rowIndex: number;
+  status: 'created';
+  client: ClientDetailsDto;
+  duplicateWarning?: DuplicateWarningDto | null;
+}
+
+export interface BulkClientFailureItem {
+  rowIndex: number;
+  status: 'failed';
+  error: {
+    code: string;
+    message: string;
+    field?: string | null;
+  };
+  inputSnapshot: {
+    name?: string;
+    email?: string | null;
+    mobile?: string | null;
+  };
+}
+
+export interface BulkCreateClientsResponseDto {
+  summary: {
+    total: number;
+    created: number;
+    failed: number;
+  };
+  results: (BulkClientSuccessItem | BulkClientFailureItem)[];
+}
+

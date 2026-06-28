@@ -10,6 +10,7 @@ import {
   createClientSchema,
   listClientsSchema,
   updateClientSchema,
+  bulkCreateClientsSchema,
 } from './clients.schemas';
 import { requireAnyRole, validateRequest } from './clients.middleware';
 
@@ -27,6 +28,8 @@ export const createClientsRoutes = (
 
   router.post('/', canCreate, validateRequest(createClientSchema), controller.createClient);
   router.post('/from-search', canCreate, validateRequest(createClientFromSearchSchema), controller.createClientFromSearch);
+  router.post('/bulk', canCreate, validateRequest(bulkCreateClientsSchema), controller.bulkCreateClients);
+
 
   router.get('/', canReadAndMutateOwnOrAll, validateRequest(listClientsSchema), controller.listClients);
   router.get(

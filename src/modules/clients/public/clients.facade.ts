@@ -14,6 +14,8 @@ import {
   ListClientsResponseDto,
   TeamClientsOverviewDto,
   UpdateClientRequestDto,
+  BulkCreateClientsRequestDto,
+  BulkCreateClientsResponseDto,
 } from './clients.types';
 
 /**
@@ -23,6 +25,7 @@ import {
 export interface ClientsFacade {
   createClient(input: CreateClientRequestDto): Promise<CreateClientResultDto>;
   createClientFromSearch(input: CreateClientFromSearchRequestDto): Promise<CreateClientResultDto>;
+  bulkCreateClients(input: BulkCreateClientsRequestDto): Promise<BulkCreateClientsResponseDto>;
   updateClient(input: UpdateClientRequestDto): Promise<ClientDetailsDto>;
   deleteClient(input: DeleteClientRequestDto): Promise<void>;
   getClientById(input: GetClientByIdRequestDto): Promise<ClientDetailsDto | null>;
@@ -32,3 +35,4 @@ export interface ClientsFacade {
   changeClientOwner(input: ChangeClientOwnerRequestDto): Promise<ClientDetailsDto>;
   getTeamClientsOverview(input: GetTeamClientsOverviewRequestDto): Promise<TeamClientsOverviewDto[]>;
 }
+

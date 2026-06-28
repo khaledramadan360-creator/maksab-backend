@@ -96,3 +96,35 @@ export interface ListClientsResult extends PaginatedResult<ClientSummary> {}
 export interface TeamOverviewResult extends Array<TeamClientOverviewItem> {}
 
 export interface ListClientOwnerOptionsResult extends Array<ClientOwnerOption> {}
+
+export interface BulkCreateClientsCommand extends ActorContext {
+  clients: CreateClientCommand[];
+  forceCreateIfDuplicate?: boolean;
+}
+
+export interface BulkCreateClientResultItem {
+  rowIndex: number;
+  status: 'created' | 'failed';
+  client?: Client;
+  duplicateWarning?: DuplicateCheckResult | null;
+  error?: {
+    code: string;
+    message: string;
+    field?: string | null;
+  };
+  inputSnapshot: {
+    name?: string;
+    email?: string | null;
+    mobile?: string | null;
+  };
+}
+
+export interface BulkCreateClientsResult {
+  summary: {
+    total: number;
+    created: number;
+    failed: number;
+  };
+  results: BulkCreateClientResultItem[];
+}
+

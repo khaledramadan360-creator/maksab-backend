@@ -1,6 +1,6 @@
 import { SearchQueryBuilder } from '../../domain/repositories';
 import { SearchRequest, SearchQueryVariant } from '../../domain/entities';
-import { SearchPlatform } from '../../domain/enums';
+import { SearchPlatform, SupportedSaudiCity } from '../../domain/enums';
 import { QueryPatternBuilderService } from '../../application/services/query-pattern-builder.service';
 
 export class WebsiteQueryBuilder implements SearchQueryBuilder {
@@ -14,8 +14,10 @@ export class WebsiteQueryBuilder implements SearchQueryBuilder {
     for (const pattern of prepared.patterns) {
       const locationParts: string[] = [];
 
-      if (pattern.includeCity) {
+      if (pattern.includeCity && request.saudiCity !== SupportedSaudiCity.ALL) {
         locationParts.push(`"${request.saudiCity}"`);
+      } else if (pattern.includeCity && request.saudiCity === SupportedSaudiCity.ALL && !pattern.includeCountry) {
+        locationParts.push('"Saudi Arabia"');
       }
 
       if (pattern.includeCountry) {

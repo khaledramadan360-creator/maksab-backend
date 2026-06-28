@@ -338,7 +338,49 @@ export const createClientFromSearchSchema = z.object({
   ),
 });
 
+const normalizeBulkCreateBody = (value: unknown): unknown => {
+  if (!isRecord(value)) return value;
+
+  const rawClients = Array.isArray(value.clients) ? value.clients : [];
+  const processedClients = rawClients.map(item => normalizeCreateBody(item));
+
+  return {
+    ...value,
+    clients: processedClients,
+    forceCreateIfDuplicate: normalizeBoolean(value.forceCreateIfDuplicate ?? value.forceCreate),
+  };
+};
+
+export const bulkCreateClientsSchema = z.object({
+  body: z.preprocess(
+    normalizeBulkCreateBody,
+    z.object({
+      forceCreateIfDuplicate: z.boolean().optional(),
+      clients: z
+        .array(
+          z.object({
+            name: z.string().trim().min(1).max(255),
+            clientType: z.nativeEnum(ClientType),
+            mobile: nullableTrimmedString.optional(),
+            whatsapp: nullableTrimmedString.optional(),
+            email: nullableEmailString.optional(),
+            saudiCity: z.string().trim().min(1).max(100),
+            notes: nullableNotesString.optional(),
+            primaryPlatform: z.nativeEnum(ClientPlatform),
+            sourceModule: z.nativeEnum(ClientSourceModule).default(ClientSourceModule.Manual),
+            sourcePlatform: z.nativeEnum(ClientPlatform),
+            sourceUrl: z.string().trim().min(1).max(2048),
+            links: linksSchema.partial().optional(),
+          })
+        )
+        .min(1, 'clients array must contain between 1 and 200 items')
+        .max(200, 'clients array must contain between 1 and 200 items'),
+    })
+  ),
+});
+
 export const listClientsSchema = z.object({
+
   query: z.preprocess(
     normalizeListClientsQuery,
     z.object({

@@ -15,6 +15,8 @@ import {
   ListClientsResponseDto,
   TeamClientsOverviewDto,
   UpdateClientRequestDto,
+  BulkCreateClientsRequestDto,
+  BulkCreateClientsResponseDto,
 } from './clients.types';
 import { ClientMapperService } from '../application/services/client-mapper.service';
 import { CreateClientUseCase } from '../application/use-cases/create-client.use-case';
@@ -27,6 +29,7 @@ import { ChangeClientStatusUseCase } from '../application/use-cases/change-clien
 import { ChangeClientOwnerUseCase } from '../application/use-cases/change-client-owner.use-case';
 import { GetTeamClientsOverviewUseCase } from '../application/use-cases/get-team-clients-overview.use-case';
 import { ListClientOwnerOptionsUseCase } from '../application/use-cases/list-client-owner-options.use-case';
+import { BulkCreateClientsUseCase } from '../application/use-cases/bulk-create-clients.use-case';
 import { NotFoundError, ValidationError } from '../application/errors';
 import { ClientPlatform, ClientSourceModule, ClientStatus, ClientType } from '../domain/enums';
 
@@ -42,8 +45,10 @@ export class ClientsFacadeImpl implements ClientsFacade {
     private readonly listClientOwnerOptionsUseCase: ListClientOwnerOptionsUseCase,
     private readonly changeClientStatusUseCase: ChangeClientStatusUseCase,
     private readonly changeClientOwnerUseCase: ChangeClientOwnerUseCase,
-    private readonly getTeamClientsOverviewUseCase: GetTeamClientsOverviewUseCase
+    private readonly getTeamClientsOverviewUseCase: GetTeamClientsOverviewUseCase,
+    private readonly bulkCreateClientsUseCase: BulkCreateClientsUseCase
   ) {}
+
 
   async createClient(input: CreateClientRequestDto): Promise<CreateClientResultDto> {
     const result = await this.createClientUseCase.execute({
@@ -97,7 +102,55 @@ export class ClientsFacadeImpl implements ClientsFacade {
     };
   }
 
+  async bulkCreateClients(input: BulkCreateClientsRequestDto): Promise<BulkCreateClientsResponseDto> {
+    const result = await this.bulkCreateClientsUseCase.execute({
+      actorUserId: input.actorUserId,
+      actorUserRole: input.actorUserRole,
+      forceCreateIfDuplicate: input.forceCreateIfDuplicate,
+      clients: input.clients.map(client => ({
+        actorUserId: input.actorUserId,
+        actorUserRole: input.actorUserRole,
+        name: client.name,
+        clientType: this.toClientType(client.clientType),
+        mobile: client.mobile,
+        whatsapp: client.whatsapp,
+        email: client.email,
+        saudiCity: client.saudiCity,
+        notes: client.notes,
+        primaryPlatform: this.toClientPlatform(client.primaryPlatform),
+        sourceModule: client.sourceModule ? this.toClientSourceModule(client.sourceModule) : ClientSourceModule.Manual,
+        sourcePlatform: this.toClientPlatform(client.sourcePlatform),
+        sourceUrl: client.sourceUrl,
+        links: client.links,
+      })),
+    });
+
+    return {
+      summary: result.summary,
+      results: result.results.map(item => {
+        if (item.status === 'created') {
+          return {
+            rowIndex: item.rowIndex,
+            status: 'created',
+            client: this.mapper.toClientDetailsDto(item.client!),
+            duplicateWarning: item.duplicateWarning
+              ? this.mapper.toDuplicateWarningDto(item.duplicateWarning)
+              : null,
+          };
+        } else {
+          return {
+            rowIndex: item.rowIndex,
+            status: 'failed',
+            error: item.error!,
+            inputSnapshot: item.inputSnapshot,
+          };
+        }
+      }),
+    };
+  }
+
   async updateClient(input: UpdateClientRequestDto): Promise<ClientDetailsDto> {
+
     const client = await this.updateClientUseCase.execute({
       actorUserId: input.actorUserId,
       actorUserRole: input.actorUserRole,

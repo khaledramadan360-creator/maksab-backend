@@ -23,6 +23,17 @@ export class ClientsController {
     res.status(201).json({ data: result });
   });
 
+  bulkCreateClients = asyncHandler(async (req: Request, res: Response) => {
+    const result = await this.facade.bulkCreateClients({
+      clients: req.body.clients,
+      forceCreateIfDuplicate: req.body.forceCreateIfDuplicate,
+      actorUserId: req.user!.userId,
+      actorUserRole: req.user!.role,
+    });
+    res.status(200).json({ data: result });
+  });
+
+
   listClients = asyncHandler(async (req: Request, res: Response) => {
     const q = req.query as any;
     const createdAtFrom =
